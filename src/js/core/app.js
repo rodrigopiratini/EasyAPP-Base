@@ -18,7 +18,7 @@ import { CONFIG } from '../config.js';
 // Segmento sem app de campo (só Gestão): SEGMENTO.usuario = null
 const TEM_USUARIO = !!SEGMENTO.usuario;
 const U = SEGMENTO.usuario || { papel: 'Usuário', papelPlural: 'Usuários', curto: 'Usuário', nome: '', colecao: null };
-const PAPEL = { dono: 'Dono', gestor: 'Gestor', usuario: U.papel };
+const PAPEL = { dono: 'Dono', gestor: 'Gestor', usuario: U.papel, suporte: 'Suporte' };
 
 export function criarApp(def) {
   const tipo = def.tipo; // 'gestao' | 'usuario'
@@ -43,7 +43,7 @@ export function criarApp(def) {
     demo: store.modo === 'local', url: CONFIG.supabaseUrl, chave: CONFIG.supabaseKey, token: store.token,
     get: () => visivel(), commit: (fn, msg) => store.commit(fn, msg), toast,
     colecoes: () => {
-      const leitura = !!(store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura';
+      const leitura = !!(store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura' || (!gestao && !!store.espelho);
       return Object.fromEntries(Object.entries(SEGMENTO.colecoes).filter(([, c]) => gestao || (c.leitura || 'gestao') !== 'gestao')
         .map(([k, c]) => [k, { nome: c.nome || k, escrita: !leitura && (gestao || c.escrita === 'proprio') }]));
     },
@@ -66,7 +66,7 @@ export function criarApp(def) {
   // o que o usuário enxerga (na nuvem o banco já filtrou; na demonstração o aparelho tem tudo)
   function visivel() {
     const s = S();
-    if (gestao || store.modo === 'nuvem' || !s) return s;
+    if (gestao || (store.modo === 'nuvem' && !store.espelho) || !s) return s;
     const ref = store.meuRef(), out = { ...s };
     for (const [k, c] of Object.entries(SEGMENTO.colecoes)) {
       const l = c.leitura || 'gestao';
@@ -117,6 +117,11 @@ export function criarApp(def) {
     return `<div class="aviso ${sp.modo === 'edicao' ? 'crit' : ''}">${icon('shield')}<span class="grow"><b>Suporte</b> · ${esc(sp.nome || '')} · ${sp.modo === 'edicao' ? 'ver e corrigir: o que você mudar fica na conta do cliente' : 'só ver'}${ate ? ` · até ${ate}` : ''}</span>
       ${gestao ? '<a href="#/plataforma" class="btn sm ghost">Trocar</a>' : ''}<button class="btn sm" data-act="sairSuporte">Sair</button></div>`;
   }
+  // gestão vendo o app de um usuário (?ver=<ref>)
+  function avisoEspelho() {
+    if (gestao || !store.espelho) return '';
+    return `<div class="aviso">${icon('info')}<span class="grow">Você está vendo o app de <b>${esc(def.nomeUsuario?.(S()) || U.papel)}</b> como ele vê, em tempo real. <b>Somente leitura.</b></span><button class="btn sm" data-act="fecharEspelho">Fechar</button></div>`;
+  }
   function avisoAssinatura() {
     const e = store.empresa();
     if (!e || e.demo) return '';
@@ -148,7 +153,7 @@ export function criarApp(def) {
         <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button><div class="t ellipsis">${title}</div>`
           : SEGMENTO.logo ? `<span style="display:grid;place-items:center">${icon(SEGMENTO.icone || 'home')}</span><div class="t ellipsis">${title}</div>`
           : `<div class="ea-marca t">${barras}${nomeMarca}</div>`}${def.topoDireita?.(s) || ''}${btIA}</header>
-        <main class="main">${avisoSuporte()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
+        <main class="main">${avisoSuporte()}${avisoEspelho()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
       </div>
       <nav class="tabbar">${tabs().map(([h, ic, n]) => `<a href="${h}" class="${isOn(h) ? 'on' : ''}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}</nav>
       ${temMais() ? '<button class="eai-fab" data-act="eaiMais" aria-label="Ações e assistente">+</button>' : ''}
@@ -196,6 +201,8 @@ export function criarApp(def) {
 
   // ---------- Configurações (gestão) ----------
   const linkUsuario = () => new URL('../usuario/' + (store.modo === 'local' ? '?demo=1' : ''), location.href).href;
+  // abrir o app de campo de um usuário como ele vê (só leitura)
+  const linkVer = (ref) => { const u = new URL('../usuario/', location.href); u.searchParams.set('ver', ref); if (store.modo === 'local') u.searchParams.set('demo', '1'); return u.href; };
   const msgAcesso = (a, doc) => `Olá${doc?.nome ? ', ' + String(doc.nome).split(' ')[0] : ''}! Este é o app ${SEGMENTO.usuario.nome} da ${store.empresa()?.nome || S().meta.empresa || ''}:\n${linkUsuario()}\n\nCódigo: ${a.codigo}\nPIN: ${a.pin}\n\nPara instalar como app:\n• iPhone: abra o link no Safari › Compartilhar › Adicionar à Tela de Início\n• Android: abra no Chrome › menu ⋮ › Instalar app`;
   const msgConvite = (codigo) => `Convite para a ${SEGMENTO.gestao.nome} (${store.empresa()?.nome || ''}):\n${new URL('../gestao/', location.href).href}\n\n1. Toque em "Criar conta" e use seu e-mail\n2. Depois toque em "Entrar com convite"\n3. Código: ${codigo}\n\nO convite vale por 7 dias e pode ser usado uma única vez.`;
 
@@ -209,7 +216,7 @@ export function criarApp(def) {
         const a = lista.find((x) => x.ref === d.id);
         return `<div class="li ${a && !a.ativo ? 'off' : ''}"><div class="avatar">${esc(iniciais(d.nome || '?'))}</div><div class="grow"><div class="t">${esc(d.nome || '—')}</div>
           <div class="s">${a ? `Código <b>${esc(a.codigo)}</b> · PIN <b>${esc(a.pin)}</b>${a.ativo ? '' : ' · bloqueado'}` : 'Sem acesso ao app'}</div></div>
-          <div class="row gap-s wrap" style="justify-content:flex-end">${a ? `<a class="btn ghost sm" target="_blank" rel="noopener" href="${waLink(d.telefone, msgAcesso(a, d))}">${icon('whatsapp')}</a><button class="btn ghost sm" data-act="copiarAcesso" data-ref="${d.id}">Copiar</button><button class="btn ghost sm" data-act="trocarPin" data-ref="${d.id}">Novo PIN</button><button class="btn ghost sm" data-act="bloquearAcesso" data-ref="${d.id}" data-v="${a.ativo ? 0 : 1}">${a.ativo ? 'Bloquear' : 'Liberar'}</button>`
+          <div class="row gap-s wrap" style="justify-content:flex-end">${a ? `<a class="btn ghost sm" target="_blank" rel="noopener" href="${waLink(d.telefone, msgAcesso(a, d))}">${icon('whatsapp')}</a><button class="btn ghost sm" data-act="copiarAcesso" data-ref="${d.id}">Copiar</button><a class="btn ghost sm" target="_blank" rel="noopener" href="${linkVer(d.id)}" title="Ver o app como ele vê">Ver app</a><button class="btn ghost sm" data-act="trocarPin" data-ref="${d.id}">Novo PIN</button><button class="btn ghost sm" data-act="bloquearAcesso" data-ref="${d.id}" data-v="${a.ativo ? 0 : 1}">${a.ativo ? 'Bloquear' : 'Liberar'}</button>`
             : `<button class="btn sm" data-act="criarAcesso" data-ref="${d.id}">${icon('plus')} Gerar acesso</button>`}</div></div>`;
       }).join('')}</div>` : empty(`Cadastre ${U.papelPlural.toLowerCase()} para gerar os acessos ao app.`, 'users');
       el._lista = lista;
@@ -277,7 +284,9 @@ export function criarApp(def) {
   const nomeColecao = (c) => SEGMENTO.colecoes[c]?.nome || { config: 'Configurações', acessos: 'Acessos', perfis: 'Perfis' }[c] || c;
   const nomeCampo = (k) => SEGMENTO.campos?.[k] || k;
   function descrever(x) {
-    if (x.acao === 'acesso') return 'entrou no app';
+    const proprio = def.descreverAtividade?.(x, S());   // o segmento pode descrever do jeito dele (texto em HTML)
+    if (proprio) return proprio;
+    if (x.acao === 'acesso') return x.papel === 'suporte' ? `abriu a empresa pelo suporte${x.depois?.modo ? ` (${x.depois.modo === 'edicao' ? 'ver e corrigir' : 'só ver'})` : ''}` : 'entrou no app';
     const doc = S()[x.colecao]?.find((d) => d.id === x.registro) || x.depois || x.antes || {};
     const nome = doc.nome || doc.titulo || doc.descricao || doc.placa || '';
     const campos = x.acao === 'update' ? Object.keys(x.depois || {}).filter((k) => !['atualizadoEm', 'updatedAt'].includes(k)) : [];
@@ -422,6 +431,7 @@ export function criarApp(def) {
   const ROTAS = [...def.rotas, ['/mais', vMais], ...(gestao ? [['/config', vConfig], ['/atividade', vAtividade], ['/plataforma', vPlataforma]] : [['/conta', vConta]])];
   function logado() {
     if (!S() || !store.perfil()) return false;
+    if (!gestao && store.espelho) return store.modo === 'local' || store.ehGestao();
     return gestao ? store.ehGestao() : store.perfil()?.papel === 'usuario' && !!store.meuRef();
   }
   function render(view, params, pattern) {
@@ -429,7 +439,7 @@ export function criarApp(def) {
     resetCharts();
     const ok = logado();
     const adminSolto = gestao && pattern === '/plataforma' && store.ehAdmin();
-    store.setSomenteLeitura(!!(ok && ((store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura')));
+    store.setSomenteLeitura(!!(ok && ((store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura' || (!gestao && store.espelho))));
     root.innerHTML = ok || adminSolto ? view(params) : gestao ? vLoginGestao() : vLoginUsuario();
     if (ok && buscas[pattern]) filtrarBusca(root, buscas[pattern]);
     if (ok && pattern === '/config') { pintarAcessos(); if (store.modo === 'nuvem') pintarEquipe(); }
@@ -457,7 +467,9 @@ export function criarApp(def) {
     atualizarApp: () => verificarAtualizacao(true),
     eaiAbrir: () => ia?.abrir(),
     eaiMais: () => { const itens = itensMais(); if (ia) ia.menuMais(itens, { aoEscolher: escolherMais }); else if (itens.length) escolherMais(itens[0]); },
-    logout: async () => { ia?.limpar(); await store.sair(); telaLogin = 'entrar'; location.hash = INICIO; rerender(); },
+    fecharEspelho: () => { window.close(); setTimeout(() => { location.href = new URL('../gestao/' + (store.modo === 'local' ? '?demo=1' : ''), location.href).href; }, 150); },
+    logout: async () => {
+      if (!gestao && store.espelho) return comuns.fecharEspelho(); ia?.limpar(); await store.sair(); telaLogin = 'entrar'; location.hash = INICIO; rerender(); },
     // login
     pin: (el) => { if (el.value && el.nextElementSibling) el.nextElementSibling.focus(); const f = el.form; if ([...f.querySelectorAll('.pin input')].every((i) => i.value)) f.requestSubmit(); },
     loginDemo: (f) => { const pin = [0, 1, 2, 3].map((i) => f.elements['p' + i].value).join(''); if (store.entrarDemoGestao(pin)) depoisDeEntrar(); else { toast('PIN incorreto'); f.reset(); f.elements.p0.focus(); } },
@@ -531,5 +543,5 @@ export function criarApp(def) {
     });
   }
 
-  return { S, tela, pageHead, busca, lerForm, rerender, iniciar, get current() { return current; }, store, U, ia };
+  return { S, tela, pageHead, busca, lerForm, rerender, iniciar, linkVer, linkUsuario, get current() { return current; }, store, U, ia };
 }

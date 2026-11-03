@@ -1,10 +1,9 @@
-# Publica os apps no GitHub Pages a cada push na main.
+# Publica os apps no GitHub Pages a cada push na main (ou no branch padrão do repositório, se for outro).
 # Requer uma vez: Settings › Pages › Build and deployment › Source: "GitHub Actions".
 name: Publicar apps
 
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,13 +11,13 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'main' || github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

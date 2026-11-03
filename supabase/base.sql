@@ -211,7 +211,7 @@ begin
   if c.nome is null then raise exception 'Coleção desconhecida: %', new.colecao; end if;
   if tg_op = 'UPDATE' and new.colecao <> old.colecao then raise exception 'Não é permitido mudar a coleção'; end if;
   if auth.uid() is not null and not public.eh_gestao(new.empresa_id) then
-    foreach k in array c.protegidos || coalesce(array[c.trava], '{}') loop
+    foreach k in array array_remove(c.protegidos || array[c.trava], null) loop
       if tg_op = 'UPDATE' and old.data ? k then new.data := jsonb_set(new.data, array[k], old.data->k);
       else new.data := new.data - k; end if;
     end loop;

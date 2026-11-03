@@ -13,6 +13,8 @@ const params = new URLSearchParams(location.search);
 export const demo = params.has('demo') || !CONFIG.supabaseUrl || !CONFIG.supabaseKey;
 export const modo = demo ? 'local' : 'nuvem';
 export const COLECOES = Object.keys(SEGMENTO.colecoes);
+// ?ver=<ref> no app de campo: a gestão vê o app de um usuário como ele vê, só leitura, com o login da própria gestão
+export const espelho = params.get('ver') || null;
 
 const KEY = `${SEGMENTO.id}:demo:v1`;
 const SESSAO = (app) => `${SEGMENTO.id}:sessao:${app}`;
@@ -54,8 +56,12 @@ function gravarSessaoLocal(v) { try { v ? localStorage.setItem(SESSAO(appAtual),
 // ---------- API ----------
 export async function init(app) {
   appAtual = app;
-  if (modo === 'local') { get(); lerSessaoLocal(); return !!perfilLocal; }
-  nuvem = criarNuvem(app, {
+  if (modo === 'local') {
+    get(); lerSessaoLocal();
+    if (espelho && app === 'usuario') perfilLocal = { papel: 'dono', ref: null, empresaId: 'demo', empresa: empresaDemo() };
+    return !!perfilLocal;
+  }
+  nuvem = criarNuvem(espelho && app === 'usuario' ? 'gestao' : app, {
     onChange: (msg, externo, info) => avisar(msg, externo, info),
     onErro: (m) => erroHook?.(m),
     onStatus: (s, n) => statusHook?.(s, n),
@@ -100,7 +106,7 @@ export const suporte = () => (modo === 'nuvem' ? nuvem?.suporte || null : null);
 export const mfa = { nivel: () => nuvem.mfa.nivel(), fator: () => nuvem.mfa.fator(), cadastrar: () => nuvem.mfa.cadastrar(), confirmar: (f, c) => nuvem.mfa.confirmar(f, c) };
 export const abrirEmpresa = (id, m) => nuvem.abrirEmpresa(id, m);
 export const sairSuporte = () => nuvem.sairSuporte();
-export const meuRef = () => perfil()?.ref || null;
+export const meuRef = () => espelho || perfil()?.ref || null;
 export const empresa = () => perfil()?.empresa || null;
 
 // ---------- Entrada ----------
