@@ -108,6 +108,13 @@ export const redefinirSenha = (e) => nuvem.redefinirSenha(e);
 export const novaSenha = (s) => nuvem.novaSenha(s);
 export const recarregar = () => nuvem?.recarregar();
 export const rpc = (fn, args) => nuvem.rpc(fn, args);
+// Supabase Edge Function (ex.: integração com WhatsApp). Só no modo nuvem; manda o login junto.
+export async function funcao(nome, corpo) {
+  if (modo !== 'nuvem') throw new Error('Disponível só com o banco na nuvem');
+  const { data, error } = await nuvem.sb.functions.invoke(nome, { body: corpo });
+  if (error) throw new Error(error.message);
+  return data;
+}
 export const renomearEmpresa = async (nome) => { if (modo === 'nuvem') await nuvem.renomearEmpresa(nome); commit((s) => { s.meta.empresa = nome; }); };
 
 // Demonstração: gestão entra com PIN; usuário entra com código + PIN dos acessos de demonstração

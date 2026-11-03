@@ -13,7 +13,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const css = ler('src/css/segmento.css');
 const cor = (v, padrao) => css.match(new RegExp(`--${v}:\\s*(#[0-9a-fA-F]{3,8})`))?.[1] || padrao;
 const C = { escura: cor('primaria-escura', '#12314D'), primaria: cor('primaria', '#1F4E79'), destaque: cor('destaque', '#F2A541'), fundo: cor('fundo', '#F5F7FA') };
-const apps = { gestao: { ...S.gestao, fundo: C.escura, traco: '#FFFFFF' }, usuario: { ...S.usuario, fundo: C.destaque, traco: C.escura } };
+const apps = { gestao: { ...S.gestao, fundo: C.escura, traco: '#FFFFFF' }, ...(S.usuario ? { usuario: { ...S.usuario, fundo: C.destaque, traco: C.escura } } : {}) };
 
 console.log(`Aplicando "${S.nome}"`);
 for (const [app, a] of Object.entries(apps)) {
@@ -52,7 +52,7 @@ gravar('index.html', `<!doctype html>
   .hub { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 32px 16px; background: radial-gradient(120% 80% at 50% 0%, var(--primaria), var(--primaria-escura) 70%); }
   .hub h1 { color: #fff; font-size: 34px; text-align: center; }
   .hub .tagline { color: var(--destaque-claro); text-align: center; margin-top: -14px; max-width: 520px; }
-  .hub .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 300px)); gap: 16px; width: 100%; justify-content: center; }
+  .hub .cards { display: grid; grid-template-columns: repeat(${S.usuario ? 2 : 1}, minmax(0, 300px)); gap: 16px; width: 100%; justify-content: center; }
   .hub a.card { display: flex; flex-direction: column; gap: 10px; color: var(--ink); transition: transform .15s; }
   .hub a.card:hover { transform: translateY(-3px); }
   .hub a.card img { width: 56px; height: 56px; border-radius: 14px; }
@@ -67,11 +67,11 @@ gravar('index.html', `<!doctype html>
   <div class="tagline">${esc(S.slogan)}</div>
   <div class="cards">
     <a class="card" href="gestao/"><img src="assets/icons/gestao-192.png" alt=""><h2>${esc(S.gestao.nome)}</h2><div class="small ink2">${esc(S.gestao.descricao)}</div><span class="btn sm" style="align-self:flex-start">Abrir</span></a>
-    <a class="card" href="usuario/"><img src="assets/icons/usuario-192.png" alt=""><h2>${esc(S.usuario.nome)}</h2><div class="small ink2">${esc(S.usuario.descricao)}</div><span class="btn sm gold" style="align-self:flex-start">Abrir</span></a>
+    ${S.usuario ? `<a class="card" href="usuario/"><img src="assets/icons/usuario-192.png" alt=""><h2>${esc(S.usuario.nome)}</h2><div class="small ink2">${esc(S.usuario.descricao)}</div><span class="btn sm gold" style="align-self:flex-start">Abrir</span></a>` : ''}
   </div>
   <div class="foot">No iPhone: abra no Safari › Compartilhar › Adicionar à Tela de Início.<br><br>
     Quer conhecer antes? Demonstração com dados fictícios (fica só neste navegador):<br>
-    <a href="gestao/?demo=1">${esc(S.gestao.curto)} demo</a> · <a href="usuario/?demo=1">${esc(S.usuario.curto)} demo</a></div>
+    <a href="gestao/?demo=1">${esc(S.gestao.curto)} demo</a>${S.usuario ? ` · <a href="usuario/?demo=1">${esc(S.usuario.curto)} demo</a>` : ''}</div>
 </div>
 <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>

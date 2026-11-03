@@ -13,7 +13,9 @@ import { esc, date, today, money0, int } from './fmt.js';
 import { icon, router, delegate, modal, closeModal, confirmar, toast, empty, waLink, download, asset, instalar, bannerInstalar, dispensarBanner, registerSW, verificarAtualizacao, versaoApp, filtrarBusca, buscaInput, iniciais, badge, kpi, moneyInput, parseMoney, stepHandler } from './ui.js';
 import { mountCharts, resetCharts } from './charts.js';
 
-const U = SEGMENTO.usuario;
+// Segmento sem app de campo (só Gestão): SEGMENTO.usuario = null
+const TEM_USUARIO = !!SEGMENTO.usuario;
+const U = SEGMENTO.usuario || { papel: 'Usuário', papelPlural: 'Usuários', curto: 'Usuário', nome: '', colecao: null };
 const PAPEL = { dono: 'Dono', gestor: 'Gestor', usuario: U.papel };
 
 export function criarApp(def) {
@@ -163,10 +165,10 @@ export function criarApp(def) {
     return tela('Configurações', `${pageHead('Configurações')}
       <div class="grid g2">
         <div class="col">
-          <div class="card col"><h2>Acesso ${U.papelPlural ? 'dos ' + esc(U.papelPlural.toLowerCase()) : 'dos usuários'}</h2>
+          ${TEM_USUARIO ? `<div class="card col"><h2>Acesso ${U.papelPlural ? 'dos ' + esc(U.papelPlural.toLowerCase()) : 'dos usuários'}</h2>
             <div class="small ink2">Cada ${esc(U.papel.toLowerCase())} entra no app <b>${esc(U.nome)}</b> com um código e um PIN. Envie pelo WhatsApp. Trocar o PIN ou bloquear desconecta os aparelhos dele.</div>
             <div id="ea-acessos" class="small muted">Carregando…</div>
-            <a class="btn ghost" href="${linkUsuario()}" target="_blank" rel="noopener">${icon('link')} Abrir o app ${esc(U.curto)}</a></div>
+            <a class="btn ghost" href="${linkUsuario()}" target="_blank" rel="noopener">${icon('link')} Abrir o app ${esc(U.curto)}</a></div>` : ''}
           ${def.configExtra?.(s) || ''}
         </div>
         <div class="col">

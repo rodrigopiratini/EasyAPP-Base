@@ -27,15 +27,16 @@ jobs:
       - name: Montar site
         run: |
           mkdir -p _site
-          cp -r index.html gestao usuario src assets sw.js .nojekyll _site/
-          [ -f CNAME ] && cp CNAME _site/ || true
+          # tudo o que é site (fica de fora só o que é de bastidor)
+          for f in *; do case "$f" in _site|supabase|scripts|docs|README.md|CLAUDE.md|package*.json|node_modules) ;; *) cp -r "$f" _site/ ;; esac; done
+          cp .nojekyll _site/
           # versão desta publicação: o app compara com version.json e oferece o botão Atualizar
           V="${GITHUB_SHA}"
           echo "{\"v\":\"$V\",\"em\":\"$(date -u +%FT%TZ)\"}" > _site/version.json
           echo "export const VERSAO = '$V';" > _site/src/js/versao.js
           # cache offline: todos os arquivos do site
           LISTA=$(cd _site && find . -type f ! -name 'version.json' ! -name '.nojekyll' ! -name 'CNAME' | sed 's#^\./##' | sort | sed "s/.*/'&'/" | paste -sd, -)
-          sed -i "s/const VERSION = '[^']*'/const VERSION = 'ea-${V:0:12}'/; s#const CORE = \[.*\];#const CORE = ['./', 'gestao/', 'usuario/', $LISTA];#" _site/sw.js
+          sed -i "s/const VERSION = '[^']*'/const VERSION = 'ea-${V:0:12}'/; s#const CORE = \[.*\];#const CORE = ['./', $LISTA];#" _site/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
