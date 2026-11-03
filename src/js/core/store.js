@@ -94,7 +94,9 @@ export const pendentes = () => nuvem?.pendentes || 0;
 export const perfil = () => (modo === 'local' ? perfilLocal : nuvem?.perfil || null);
 export const ehGestao = () => ['dono', 'gestor'].includes(perfil()?.papel);
 export const ehDono = () => perfil()?.papel === 'dono';
-export const ehAdmin = () => !!perfil()?.admin;
+export const ehAdmin = () => !!perfil()?.admin && !suporte();
+// Painel de gestão abriu o app como o cliente: { modo: 'leitura' | 'edicao', nome }
+export const suporte = () => (modo === 'nuvem' ? nuvem?.suporte || null : null);
 export const meuRef = () => perfil()?.ref || null;
 export const empresa = () => perfil()?.empresa || null;
 

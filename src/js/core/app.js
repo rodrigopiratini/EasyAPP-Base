@@ -43,6 +43,11 @@ export function criarApp(def) {
   }
   const marca = (neg = true) => SEGMENTO.logo ? `<img src="${asset(SEGMENTO.logo)}" alt="${esc(SEGMENTO.nome)}">` : `<div class="nome">${esc(SEGMENTO.nome)}</div>`;
 
+  function avisoSuporte() {
+    const sp = store.suporte();
+    if (!sp) return '';
+    return `<div class="aviso ${sp.modo === 'edicao' ? 'crit' : ''}">${icon('shield')}<span class="grow"><b>Modo suporte</b> · ${esc(sp.nome || '')} · ${sp.modo === 'edicao' ? 'leitura e edição: o que você mudar fica na conta do cliente' : 'só leitura'}</span></div>`;
+  }
   function avisoAssinatura() {
     const e = store.empresa();
     if (!e || e.demo) return '';
@@ -69,7 +74,7 @@ export function criarApp(def) {
       </aside>
       <div>
         <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button>` : `<span style="display:grid;place-items:center">${icon(SEGMENTO.icone || 'home')}</span>`}<div class="t ellipsis">${title}</div>${def.topoDireita?.(s) || ''}</header>
-        <main class="main">${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
+        <main class="main">${avisoSuporte()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
       </div>
       <nav class="tabbar">${tabs().map(([h, ic, n]) => `<a href="${h}" class="${isOn(h) ? 'on' : ''}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}</nav>
     </div>`;
@@ -299,7 +304,7 @@ export function criarApp(def) {
     resetCharts();
     const ok = logado();
     const adminSolto = gestao && pattern === '/plataforma' && store.ehAdmin();
-    store.setSomenteLeitura(ok && store.empresa() && !store.empresa().liberada);
+    store.setSomenteLeitura(!!(ok && ((store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura')));
     root.innerHTML = ok || adminSolto ? view(params) : gestao ? vLoginGestao() : vLoginUsuario();
     if (ok && buscas[pattern]) filtrarBusca(root, buscas[pattern]);
     if (ok && pattern === '/config') { pintarAcessos(); if (store.modo === 'nuvem') pintarEquipe(); }

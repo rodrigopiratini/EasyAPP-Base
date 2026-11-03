@@ -12,11 +12,26 @@ const LOTE = 200;
 const SCHEMA = SEGMENTO.schema || 'public'; // pasta do app no banco (vários apps no mesmo projeto)
 
 export function criarNuvem(app, hooks) {
+  // Modo suporte: o painel de gestão abre o app como o cliente passando o acesso em #suporte=… .
+  // Essa sessão fica só nesta aba (sessionStorage) e não substitui o login de quem usa o navegador.
+  const SUP_KEY = `${SEGMENTO.id}-suporte-${app}`;
+  let suporte = null;
+  try {
+    const h = new URLSearchParams(location.hash.startsWith('#suporte=') ? location.hash.slice(1) : '');
+    if (h.get('suporte')) {
+      const d = JSON.parse(decodeURIComponent(escape(atob(h.get('suporte')))));
+      sessionStorage.setItem(SUP_KEY, JSON.stringify(d));
+      history.replaceState(null, '', location.pathname + location.search + '#/');
+    }
+    suporte = JSON.parse(sessionStorage.getItem(SUP_KEY) || 'null');
+  } catch { suporte = null; }
   const sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
     db: { schema: SCHEMA },
-    auth: { storageKey: `${SEGMENTO.id}-auth-${app}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: suporte
+      ? { storageKey: SUP_KEY + '-auth', storage: window.sessionStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+      : { storageKey: `${SEGMENTO.id}-auth-${app}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
-  const OUTBOX = `${SEGMENTO.id}-fila-${app}`;
+  const OUTBOX = suporte ? SUP_KEY + '-fila' : `${SEGMENTO.id}-fila-${app}`;
   let state = null;
   let perfil = null;
   let snap = {};
@@ -169,7 +184,9 @@ export function criarNuvem(app, hooks) {
     get status() { return fila.length && status === 'online' ? 'enviando' : status; },
     get pendentes() { return fila.length; },
     registrarMudancas,
+    get suporte() { return suporte; },
     async iniciar() {
+      if (suporte?.access_token) { await sb.auth.setSession({ access_token: suporte.access_token, refresh_token: suporte.refresh_token }); delete suporte.access_token; sessionStorage.setItem(SUP_KEY, JSON.stringify(suporte)); }
       const { data } = await sb.auth.getSession();
       if (!data.session) return false;
       try { return await iniciarSessao(); } catch (e) { console.warn(e); hooks.onErro?.('Sem conexão com o servidor. Tente novamente.'); return false; }
@@ -216,6 +233,7 @@ export function criarNuvem(app, hooks) {
     },
     async sair() {
       canal?.unsubscribe();
+      if (suporte) { try { sessionStorage.removeItem(SUP_KEY); } catch {} }
       await sb.auth.signOut();
       perfil = null; state = null;
     },
