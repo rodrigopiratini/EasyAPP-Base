@@ -35,19 +35,21 @@ begin
           'liberada', %I.empresa_liberada(e.id),
           'dono', (select u.email from %I.perfis p join auth.users u on u.id = p.user_id where p.empresa_id = e.id and p.papel = 'dono' limit 1),
           'gestores', (select count(*) from %I.perfis p where p.empresa_id = e.id and p.papel in ('dono', 'gestor')),
+          'equipe', (select coalesce(json_agg(u.email order by u.email), '[]') from %I.perfis p join auth.users u on u.id = p.user_id where p.empresa_id = e.id and p.papel = 'gestor'),
           'usuarios', (select count(*) from %I.acessos x where x.empresa_id = e.id and x.ativo),
           'registros', (select count(*) from %I.docs d where d.empresa_id = e.id),
           'ultimoUso', (select max(em) from %I.atividade t where t.empresa_id = e.id),
           'online', (select count(*) from %I.perfis p where p.empresa_id = e.id and p.visto_em > now() - interval '3 minutes')) order by e.criado_em), '[]'::jsonb)
-        from %I.empresas e$q$, a.pasta, a.nome, a.url_gestao, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
+        from %I.empresas e$q$, a.pasta, a.nome, a.url_gestao, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
     else
       execute format($q$
         select jsonb_build_array(jsonb_build_object('app', %L, 'appNome', %L, 'url', %L, 'id', null, 'nome', %L, 'situacao', 'ativa', 'liberada', true,
           'dono', (select u.email from %I.perfis p join auth.users u on u.id = p.user_id where p.papel = 'dono' limit 1),
           'gestores', (select count(*) from %I.perfis p where p.papel in ('dono', 'gestor')),
+          'equipe', (select coalesce(json_agg(u.email order by u.email), '[]') from %I.perfis p join auth.users u on u.id = p.user_id where p.papel = 'gestor'),
           'usuarios', (select count(*) from %I.perfis p where p.papel not in ('dono', 'gestor')),
           'ultimoUso', (select max(em) from %I.atividade),
-          'online', (select count(distinct user_id) from %I.atividade where em > now() - interval '5 minutes')))$q$, a.pasta, a.nome, a.url_gestao, a.nome, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
+          'online', (select count(distinct user_id) from %I.atividade where em > now() - interval '5 minutes')))$q$, a.pasta, a.nome, a.url_gestao, a.nome, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
     end if;
     out := out || coalesce(parte, '[]'::jsonb);
   end loop;
