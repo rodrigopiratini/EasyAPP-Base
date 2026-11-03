@@ -70,6 +70,7 @@ create table if not exists public.perfis (
   criado_em timestamptz not null default now()
 );
 create index if not exists perfis_empresa_idx on public.perfis (empresa_id, papel);
+alter table public.perfis add column if not exists visto_em timestamptz;  -- presença: último sinal do app aberto
 
 create table if not exists public.acessos (
   codigo text primary key,
@@ -388,6 +389,12 @@ begin
   delete from public.atividade where em < now() - interval '1 year';
 end $$;
 
+-- Presença: o app aberto manda um sinal a cada 2 minutos (o painel de gestão mostra quem está conectado)
+create or replace function public.sinal() returns void
+language sql security definer set search_path = public as $$
+  update public.perfis set visto_em = now() where user_id = auth.uid();
+$$;
+
 create or replace function public.atividade_log(p_antes timestamptz default null, p_user uuid default null, p_desde timestamptz default null, p_limite int default 300) returns json
 language plpgsql stable security definer set search_path = public as $$
 declare v_emp uuid := public.minha_empresa();
@@ -431,7 +438,7 @@ end $$;
 -- ---------- Permissões das funções ----------
 do $$ declare f text; begin
   foreach f in array array['criar_empresa(text)', 'entrar_convite(text)', 'vincular_usuario(text, text)', 'criar_convite(text)', 'equipe()',
-    'remover_gestor(uuid)', 'cancelar_convite(text)', 'registrar_acesso()', 'atividade_log(timestamptz, uuid, timestamptz, int)',
+    'remover_gestor(uuid)', 'cancelar_convite(text)', 'registrar_acesso()', 'sinal()', 'atividade_log(timestamptz, uuid, timestamptz, int)',
     'plataforma_empresas()', 'plataforma_atualizar(uuid, text, text, date, date, numeric, text)', 'meu_perfil()'] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

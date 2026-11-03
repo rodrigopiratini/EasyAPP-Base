@@ -173,7 +173,18 @@ export function criarNuvem(app, hooks) {
     ouvir();
     enviar();
     sb.rpc('registrar_acesso').then(({ error }) => error && console.warn('registrar_acesso', error.message));
+    sinalPresenca();
     return true;
+  }
+  // Presença: enquanto o app está aberto e visível, avisa o banco a cada 2 minutos (o painel mostra quem está conectado).
+  // O modo suporte não conta como presença do cliente.
+  let presenca = null;
+  function sinalPresenca() {
+    if (suporte || presenca) return;
+    const bater = () => { if (document.visibilityState === 'visible') sb.rpc('sinal').then(() => {}, () => {}); };
+    bater();
+    presenca = setInterval(bater, 120000);
+    document.addEventListener('visibilitychange', bater);
   }
 
   const erroLogin = (m) => (m === 'Invalid login credentials' ? 'E-mail ou senha incorretos' : m === 'Email not confirmed' ? 'Confirme o e-mail antes de entrar (veja sua caixa de entrada)' : m);

@@ -7,7 +7,7 @@
 // Segredos: FABRICA_SEGREDO (o mesmo cadastrado na função gestao do Financial). SUPABASE_URL,
 // SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já existem.
 //
-// Ações (POST, JSON): { op: 'listar' } · { op: 'abrir_como', pasta, empresa, modo, quem } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
+// Ações (POST, JSON): { op: 'listar' } · { op: 'pessoas', pasta, empresa, dias } · { op: 'abrir_como', pasta, empresa, modo, quem } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const URL_SB = Deno.env.get('SUPABASE_URL')!;
@@ -31,6 +31,12 @@ Deno.serve(async (req) => {
   if (b.op === 'listar') {
     const { data, error } = await adm.rpc('fabrica_empresas');
     return error ? json({ erro: error.message }) : json({ ok: true, empresas: data });
+  }
+
+  // quem entra na empresa (e se está conectado agora) e o registro do que cada um fez
+  if (b.op === 'pessoas') {
+    const { data, error } = await adm.rpc('fabrica_pessoas', { p_pasta: String(b.pasta || ''), p_empresa: b.empresa || null, p_dias: Math.min(365, Math.max(1, Number(b.dias) || 60)) });
+    return error ? json({ erro: error.message }) : json({ ok: true, ...data });
   }
 
   if (b.op === 'abrir_como') {
