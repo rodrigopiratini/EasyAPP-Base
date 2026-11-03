@@ -16,7 +16,7 @@ alter table public.fabrica_apps enable row level security;
 revoke all on public.fabrica_apps from anon, authenticated;
 insert into public.fabrica_apps (pasta, nome, url_gestao, multiempresa) values
   ('milterras', 'Mil Terras', 'https://rodrigopiratini.github.io/MilTerras/gestor/', false),
-  ('frota', 'EasyApp Frota', 'https://rodrigopiratini.github.io/EasyAPP-Frota/gestao/', true),
+  ('frota', 'EasyAPP Frota', 'https://rodrigopiratini.github.io/EasyAPP-Frota/gestao/', true),
   ('golden', 'Golden CRM', 'https://rodrigopiratini.github.io/Golden/gestao/', true)
 on conflict (pasta) do update set nome = excluded.nome, url_gestao = excluded.url_gestao, multiempresa = excluded.multiempresa;
 
@@ -140,3 +140,46 @@ do $$ declare f text; begin
 end $$;
 
 select json_array_length(public.fabrica_empresas()) as "empresas encontradas";
+
+-- ---------- Push para o dono da plataforma quando alguém entra num app da fábrica ----------
+-- O painel de gestão inscreve o aparelho (Web Push). Ao registrar um acesso (atividade.acao = 'acesso', no máximo 1 a cada
+-- 30 min por pessoa), o banco chama a função gestao-fabrica (pg_net), que manda o push. Não avisa o modo suporte nem as
+-- entradas de quem está inscrito. Chaves (VAPID e o segredo do aviso) ficam em fabrica_config, só para o servidor.
+create extension if not exists pg_net;
+create table if not exists public.fabrica_push (endpoint text primary key, p256dh text not null, auth text not null, quem text, criado_em timestamptz not null default now(), ultimo_envio timestamptz);
+create table if not exists public.fabrica_config (chave text primary key, valor text not null);
+alter table public.fabrica_push enable row level security;
+alter table public.fabrica_config enable row level security;
+revoke all on public.fabrica_push, public.fabrica_config from anon, authenticated;
+
+create or replace function public.fabrica_avisar_acesso() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_url text; v_seg text; r jsonb := to_jsonb(new); v_app text; v_emp text;
+begin
+  begin -- o aviso nunca atrapalha o app
+    if r->>'acao' <> 'acesso' or coalesce(r->>'papel', '') = 'suporte' or coalesce(r->>'quem', '') like 'Suporte%' then return null; end if;
+    if not exists (select 1 from public.fabrica_push) then return null; end if;
+    if exists (select 1 from public.fabrica_push where quem = r->>'quem') then return null; end if;  -- as suas entradas não avisam
+    select valor into v_url from public.fabrica_config where chave = 'url';
+    select valor into v_seg from public.fabrica_config where chave = 'aviso_segredo';
+    if v_url is null or v_seg is null then return null; end if;
+    select nome into v_app from public.fabrica_apps where pasta = tg_table_schema;
+    if r->>'empresa_id' is not null and to_regclass(format('%I.empresas', tg_table_schema)) is not null then
+      execute format('select nome from %I.empresas where id = $1', tg_table_schema) into v_emp using (r->>'empresa_id')::uuid;
+    end if;
+        perform net.http_post(url := v_url || '/functions/v1/gestao-fabrica',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-aviso-segredo', v_seg),
+      body := jsonb_build_object('op', 'avisar_acesso', 'pasta', tg_table_schema, 'app', coalesce(v_app, tg_table_schema), 'empresa', coalesce(v_emp, v_app, ''), 'quem', r->>'quem', 'papel', r->>'papel'));
+  exception when others then raise warning 'fabrica_avisar_acesso: %', sqlerrm;
+  end;
+  return null;
+end $$;
+revoke all on function public.fabrica_avisar_acesso() from public, anon, authenticated;
+
+do $$ declare a record; begin
+  for a in select pasta from public.fabrica_apps loop
+    if to_regclass(format('%I.atividade', a.pasta)) is null then continue; end if;
+    execute format('drop trigger if exists tg_fabrica_aviso on %I.atividade', a.pasta);
+    execute format('create trigger tg_fabrica_aviso after insert on %I.atividade for each row execute function public.fabrica_avisar_acesso()', a.pasta);
+  end loop;
+end $$;
