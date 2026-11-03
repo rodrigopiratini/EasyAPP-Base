@@ -63,7 +63,8 @@ export function lerCampos(id, campos) {
 }
 
 // Cadastro completo (novo ou edição) de um documento de uma coleção
-export function editar({ titulo, colecao, campos, doc = null, inicial = null, prefixo = colecao.slice(0, 2), antesDeSalvar, onSalvo, apagar = true, extra = '', largo = true }) {
+// antesDeApagar(doc): devolva um texto para impedir a exclusão (ex.: registro ainda usado em outro lugar)
+export function editar({ titulo, colecao, campos, doc = null, inicial = null, prefixo = colecao.slice(0, 2), antesDeSalvar, antesDeApagar, onSalvo, apagar = true, extra = '', largo = true }) {
   const novo = !doc;
   modal({
     title: (novo ? 'Novo: ' : '') + titulo, wide: largo,
@@ -82,6 +83,8 @@ export function editar({ titulo, colecao, campos, doc = null, inicial = null, pr
         onSalvo?.(final, novo);
       },
       apagar: async () => {
+        const bloqueio = antesDeApagar?.(doc);
+        if (bloqueio) return confirmar(bloqueio, { ok: 'Entendi', titulo: 'Não dá para excluir' });
         if (!(await confirmar(`Apagar este registro de ${esc(titulo.toLowerCase())}? Não dá para desfazer.`, { ok: 'Apagar' }))) return;
         store.commit((s) => { s[colecao] = s[colecao].filter((x) => x.id !== doc.id); });
         toast('Apagado'); onSalvo?.(null, false);
