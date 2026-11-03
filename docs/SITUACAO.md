@@ -12,7 +12,7 @@
 |---|---|---|---|
 | EasyApp Financial | easyapp-financial + easyapp | easyappfinancial.com.br | projeto próprio |
 | Mil Terras | MilTerras | https://rodrigopiratini.github.io/MilTerras/ | milterras |
-| EasyApp Frota | EasyAPP-Frota | https://rodrigopiratini.github.io/EasyAPP-Frota/ | frota |
+| EasyAPP Frota | EasyAPP-Frota | https://rodrigopiratini.github.io/EasyAPP-Frota/ | frota |
 | Golden CRM | Golden | https://rodrigopiratini.github.io/Golden/gestao/ | golden |
 
 ## Regras
@@ -25,8 +25,8 @@
 - Apagar Vercel (golden-crm) e os projetos pausados.
 
 ## Suporte: abrir a empresa de um cliente (desde 03/11/2026, à noite)
-Quem está em `<pasta>.plataforma_admins` entra no app de Gestão com o próprio e-mail › **Plataforma** › **Ver** (só ver) ou
-**Corrigir** (ver e corrigir) na linha da empresa. O app recarrega com os dados dela, como o dono vê, com a faixa "Suporte · empresa
+O **Desenvolvedor** (quem está em `<pasta>.plataforma_admins`) entra no app de Gestão com o próprio e-mail › **Plataforma** › **Ver** (só ver) ou
+**Corrigir** (ver e corrigir) na linha da empresa. O app recarrega com os dados dela, como o Administrador da empresa vê, com a faixa "Suporte · empresa
 · até HH:MM" (**Trocar** / **Sair**). Regras no banco (`base.sql`): tabela `suporte_visitas`, `suporte_abrir` / `suporte_sair`;
 a visita vale 2 horas e só com a **verificação em duas etapas** (app autenticador) confirmada na sessão (aal2): na primeira vez o app
 mostra o QR code. "Só ver" o banco recusa qualquer gravação. O que o suporte faz fica no registro de atividades como "Suporte (e-mail)".

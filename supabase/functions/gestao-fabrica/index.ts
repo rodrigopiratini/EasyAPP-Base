@@ -47,7 +47,7 @@ async function enviarPush(cfg: Record<string, string>, aviso: { title: string; b
   }
   return { enviados: ok, falhas, aparelhos: (subs || []).length };
 }
-const PAPEL: Record<string, string> = { dono: 'dono', gestor: 'gestão', usuario: 'app de campo' };
+const PAPEL: Record<string, string> = { dono: 'administrador', gestor: 'gestor', usuario: 'usuário' };
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ erro: 'use POST' }, 405);
