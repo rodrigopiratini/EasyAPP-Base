@@ -140,6 +140,17 @@ export const stepper = (name, value, { min = 0, max = 999 } = {}) =>
 // Campos de valor em reais com máscara (digita só números: 1234 → 12,34)
 export const fmtMoneyInput = (v) => (Math.round((+v || 0) * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const parseMoney = (str) => { const d = String(str ?? '').replace(/\D/g, ''); return d ? +d / 100 : 0; };
+// Inteiro com ponto de milhar enquanto digita (km, hodômetro…): <input data-int>
+export const fmtInt = (v) => (v === '' || v == null || isNaN(+v) ? '' : Math.round(+v).toLocaleString('pt-BR'));
+export const parseInt0 = (str) => { const d = String(str ?? '').replace(/\D/g, ''); return d ? +d : null; };
+export const intInput = (name, value, extra = '') => `<input class="input num" name="${name}" inputmode="numeric" autocomplete="off" data-int value="${fmtInt(value)}" ${extra}>`;
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (!el.matches?.('input[data-int]')) return;
+  const fim = el.value.length - (el.selectionEnd ?? el.value.length);
+  el.value = fmtInt(parseInt0(el.value));
+  try { const pos = Math.max(0, el.value.length - fim); el.setSelectionRange(pos, pos); } catch {}
+});
 export const moneyInput = (name, value, { width = 130, extra = '' } = {}) =>
   `<span class="money-in" style="width:${typeof width === 'number' ? width + 'px' : width}"><span>R$</span><input class="input num" name="${name}" inputmode="numeric" autocomplete="off" data-money value="${fmtMoneyInput(value)}" ${extra}></span>`;
 document.addEventListener('input', (e) => {

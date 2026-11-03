@@ -9,13 +9,13 @@
 //   editar({ titulo: 'Cliente', colecao: 'clientes', campos: CAMPOS, doc });   // novo (doc null) ou edição
 //   editar({ ..., inicial: { clienteId } })                                       // novo já preenchido
 //
-// Tipos: text (padrão) | tel | email | number | money | date | select | textarea | checkbox
+// Tipos: text (padrão) | tel | email | number | inteiro (ponto de milhar: km, hodômetro) | money | date | select | textarea | checkbox
 // Opções extras de cada campo: ph (placeholder), dica, col: 2 (ocupa a linha toda), padrao, min, max, passo,
 // se: (valores) => boolean (só mostra quando…), opcoes também pode ser função (s) => [[v, label]].
 
 import * as store from './store.js';
 import { esc, uid } from './fmt.js';
-import { modal, closeModal, confirmar, toast, moneyInput, parseMoney, icon } from './ui.js';
+import { modal, closeModal, confirmar, toast, moneyInput, parseMoney, intInput, parseInt0, icon } from './ui.js';
 
 const valorInicial = (c, doc) => (doc && doc[c.k] !== undefined ? doc[c.k] : typeof c.padrao === 'function' ? c.padrao() : c.padrao ?? '');
 
@@ -26,6 +26,7 @@ export function campoHTML(c, doc, s = store.get()) {
   let input;
   switch (c.tipo) {
     case 'money': input = moneyInput(c.k, v || 0, { width: '100%' }); break;
+    case 'inteiro': input = intInput(c.k, v, `${req} ${ph}`); break;
     case 'number': input = `<input class="input num" type="number" inputmode="decimal" name="${c.k}" value="${esc(v)}" ${c.min != null ? `min="${c.min}"` : ''} ${c.max != null ? `max="${c.max}"` : ''} step="${c.passo || 'any'}" ${req} ${ph}>`; break;
     case 'date': input = `<input class="input" type="date" name="${c.k}" value="${esc(v)}" ${req}>`; break;
     case 'textarea': input = `<textarea class="input" name="${c.k}" ${req} ${ph}>${esc(v)}</textarea>`; break;
@@ -51,6 +52,7 @@ export function lerCampos(id, campos) {
     let v;
     if (c.tipo === 'checkbox') v = el.checked;
     else if (c.tipo === 'money') v = parseMoney(el.value);
+    else if (c.tipo === 'inteiro') v = parseInt0(el.value);
     else if (c.tipo === 'number') v = el.value === '' ? null : +String(el.value).replace(',', '.');
     else v = String(el.value ?? '').trim();
     if (c.maiusculas && typeof v === 'string') v = v.toUpperCase();
