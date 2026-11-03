@@ -1,0 +1,44 @@
+# Publica os apps no GitHub Pages a cada push na main.
+# Requer uma vez: Settings › Pages › Build and deployment › Source: "GitHub Actions".
+name: Publicar apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Montar site
+        run: |
+          mkdir -p _site
+          cp -r index.html gestao usuario src assets sw.js .nojekyll _site/
+          [ -f CNAME ] && cp CNAME _site/ || true
+          # versão desta publicação: o app compara com version.json e oferece o botão Atualizar
+          V="${GITHUB_SHA}"
+          echo "{\"v\":\"$V\",\"em\":\"$(date -u +%FT%TZ)\"}" > _site/version.json
+          echo "export const VERSAO = '$V';" > _site/src/js/versao.js
+          # cache offline: todos os arquivos do site
+          LISTA=$(cd _site && find . -type f ! -name 'version.json' ! -name '.nojekyll' ! -name 'CNAME' | sed 's#^\./##' | sort | sed "s/.*/'&'/" | paste -sd, -)
+          sed -i "s/const VERSION = '[^']*'/const VERSION = 'ea-${V:0:12}'/; s#const CORE = \[.*\];#const CORE = ['./', 'gestao/', 'usuario/', $LISTA];#" _site/sw.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

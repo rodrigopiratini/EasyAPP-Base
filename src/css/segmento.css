@@ -1,0 +1,11 @@
+/* Cores da marca do segmento (sobrepõem src/css/base.css). Troque só estas variáveis. */
+:root {
+  --primaria: #1F4E79;        /* botões, links, destaques */
+  --primaria-escura: #12314D; /* menu lateral, topo do celular, fundo do login */
+  --destaque: #F2A541;        /* indicadores, selos */
+  --destaque-claro: #FBE7C6;
+  --fundo: #F5F7FA;
+  --surface-2: #EDF1F6;
+  --line: #DFE5EC;
+  --s1: #1F77B4; --s2: #F2A541; --s3: #2CA02C;
+}

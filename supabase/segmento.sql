@@ -1,0 +1,3 @@
+-- Regras específicas deste segmento (gatilhos, funções, índices extras).
+-- As coleções e suas regras de acesso NÃO ficam aqui: declare em src/js/segmento.js.
+-- Exemplo (serviços em campo): nada extra por enquanto.
