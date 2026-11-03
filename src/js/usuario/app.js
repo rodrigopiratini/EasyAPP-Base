@@ -15,6 +15,7 @@ const A = criarApp({
   rotas: [['/inicio', vInicio], ['/historico', vHistorico]],
   nomeUsuario: () => eu()?.nome || '',
   dicaDemo: 'Demonstração: código CARLOS, PIN 1234',
+  sugestoes: (rota) => rota === '/historico' ? ['Quanto eu fiz este mês?'] : ['Qual a minha próxima ordem?', 'Qual o endereço do próximo cliente?'],
   acoes: {
     iniciar: (el) => A.store.commit((s) => Object.assign(s.ordens.find((o) => o.id === el.dataset.id), { status: 'em_andamento', inicio: agora() })),
     concluir: (el) => modal({ title: 'Concluir OS', body: '<form id="fcc" class="col"><label class="field"><span>O que foi feito</span><textarea class="input" name="obs" required></textarea></label></form>',

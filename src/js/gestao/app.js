@@ -33,6 +33,19 @@ const A = criarApp({
   ativo: (h, route) => h === '#/ordens' && route.startsWith('#/ordem'),
   rotas: [['/painel', vPainel], ['/ordens', vOrdens], ['/clientes', vClientes], ['/tecnicos', vTecnicos]],
   camposEmpresa: [['whatsapp', 'WhatsApp da empresa', '5551999999999']],
+  // botão + : o que dá para fazer em cada tela (o assistente entra no fim do menu sozinho)
+  mais: (rota) => [
+    { icone: 'plus', texto: 'Nova ordem de serviço', act: 'novaOS' },
+    rota === '/clientes' || rota === '/painel' ? { icone: 'store', texto: 'Novo cliente', act: 'novoCliente' } : null,
+    rota === '/tecnicos' ? { icone: 'users', texto: 'Novo técnico', act: 'novoTecnico' } : null,
+  ],
+  // perguntas prontas do assistente em cada tela
+  sugestoes: (rota) => ({
+    '/painel': ['Como foi o mês comparado com o anterior?', 'Qual técnico faturou mais este mês?'],
+    '/ordens': ['Quais ordens concluídas faltam conferir?', 'Quais ordens estão abertas há mais de 7 dias?'],
+    '/clientes': ['Quais clientes não têm ordem há mais de 60 dias?'],
+    '/tecnicos': ['Quantas ordens cada técnico concluiu este mês?'],
+  }[rota] || []),
   aoMudar: (msg, externo, info) => { if (externo && info?.colecao === 'ordens' && info.doc.status === 'concluida' && info.antes?.status !== 'concluida') toast(`OS ${info.doc.numero} concluída`); },
   acoes: {
     novaOS: () => editar({ titulo: 'Ordem de serviço', colecao: 'ordens', campos: CAMPOS_OS, prefixo: 'os', antesDeSalvar: (o, antes) => { if (!antes) Object.assign(o, { numero: D.proximoNumero(A.S()), status: 'aberta', conferida: false }); } }),

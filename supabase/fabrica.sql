@@ -183,3 +183,76 @@ do $$ declare a record; begin
     execute format('create trigger tg_fabrica_aviso after insert on %I.atividade for each row execute function public.fabrica_avisar_acesso()', a.pasta);
   end loop;
 end $$;
+
+-- ---------- Assistente (IA) de todos os apps da fábrica (03/11/2026) ----------
+-- A função "assistente" (supabase/functions/assistente) atende todos os apps: confere o login na pasta do app,
+-- chama o Claude e grava aqui o custo de cada pedido (só a chave de serviço grava ou lê).
+--   Limite do mês por empresa (R$ de custo): fabrica_ia_limites; sem linha, vale fabrica_config.ia_limite_padrao (30).
+--   Demonstração (?demo=1, sem login): teto do dia somando todos os apps, fabrica_config.ia_limite_demo_dia (10).
+--   Administradores da plataforma não têm limite.
+create table if not exists public.fabrica_ia (
+  id bigint generated always as identity primary key,
+  em timestamptz not null default now(),
+  pasta text not null,
+  empresa text not null,            -- id da empresa; 'unica' nos apps de um cliente só; 'demo' na demonstração
+  user_id uuid,
+  quem text,
+  papel text,
+  app text,                         -- gestao | usuario
+  modelo text,
+  entrada int not null default 0,
+  saida int not null default 0,
+  cache_lido int not null default 0,
+  cache_gravado int not null default 0,
+  custo numeric(12,4) not null default 0,   -- R$ (o que a Anthropic cobra, convertido)
+  voltas int not null default 0,
+  pergunta text,
+  erro text
+);
+create index if not exists fabrica_ia_empresa on public.fabrica_ia (pasta, empresa, em);
+create table if not exists public.fabrica_ia_limites (
+  pasta text not null, empresa text not null, limite numeric(10,2) not null,
+  primary key (pasta, empresa));
+alter table public.fabrica_ia enable row level security;
+alter table public.fabrica_ia_limites enable row level security;
+revoke all on public.fabrica_ia, public.fabrica_ia_limites from anon, authenticated;
+insert into public.fabrica_config (chave, valor) values ('ia_limite_padrao', '30'), ('ia_limite_demo_dia', '10') on conflict (chave) do nothing;
+
+-- Gasto do mês e limite de uma empresa (o assistente confere antes de cada pedido)
+create or replace function public.fabrica_ia_saldo(p_pasta text, p_empresa text) returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'gasto', coalesce((select sum(custo) from public.fabrica_ia where pasta = p_pasta and empresa = p_empresa
+                        and em >= date_trunc('month', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo'), 0),
+    'limite', coalesce((select limite from public.fabrica_ia_limites where pasta = p_pasta and empresa = p_empresa),
+                       (select valor::numeric from public.fabrica_config where chave = 'ia_limite_padrao'), 30),
+    'demoHoje', coalesce((select sum(custo) from public.fabrica_ia where empresa = 'demo'
+                        and em >= date_trunc('day', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo'), 0),
+    'limiteDemo', coalesce((select valor::numeric from public.fabrica_config where chave = 'ia_limite_demo_dia'), 10))
+$$;
+-- Uso do assistente por empresa (painel de gestão): mês atual, mês passado e limite
+create or replace function public.fabrica_ia_uso() returns json
+language sql stable security definer set search_path = public as $$
+  with m as (select date_trunc('month', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo' ini)
+  select coalesce(json_agg(x order by x.mes desc), '[]') from (
+    select f.pasta, f.empresa,
+      sum(f.custo) filter (where f.em >= m.ini) mes,
+      sum(f.custo) filter (where f.em < m.ini and f.em >= m.ini - interval '1 month') "mesPassado",
+      count(*) filter (where f.em >= m.ini) pedidos,
+      count(*) filter (where f.em >= m.ini and f.erro is not null) erros,
+      max(f.em) ultimo,
+      coalesce((select l.limite from public.fabrica_ia_limites l where l.pasta = f.pasta and l.empresa = f.empresa),
+               (select valor::numeric from public.fabrica_config where chave = 'ia_limite_padrao'), 30) limite
+    from public.fabrica_ia f, m where f.em >= m.ini - interval '1 month' group by f.pasta, f.empresa) x
+$$;
+create or replace function public.fabrica_ia_limite(p_pasta text, p_empresa text, p_limite numeric) returns void
+language sql security definer set search_path = public as $$
+  insert into public.fabrica_ia_limites (pasta, empresa, limite) values (p_pasta, p_empresa, p_limite)
+  on conflict (pasta, empresa) do update set limite = excluded.limite
+$$;
+do $$ declare f text; begin
+  foreach f in array array['fabrica_ia_saldo(text, text)', 'fabrica_ia_uso()', 'fabrica_ia_limite(text, text, numeric)'] loop
+    execute format('revoke all on function public.%s from public, anon, authenticated', f);
+    execute format('grant execute on function public.%s to service_role', f);
+  end loop;
+end $$;

@@ -17,6 +17,7 @@ e dentro da pasta atendem todas as empresas daquele segmento.
 | Cadastros a partir de uma lista de campos (`editar({...})`) | `src/js/core/form.js` |
 | Componentes (cartões, KPIs, gráficos, modais, WhatsApp, CSV, impressão) | `src/js/core/ui.js`, `charts.js` |
 | Publicação automática + aviso "Nova versão · Atualizar" | `.github/workflows/pages.yml` |
+| **Assistente (IA)** ✦ no topo e botão **+** com as ações de cada tela | `src/js/core/assistente.js` + função `supabase/functions/assistente` |
 
 ## O que cada segmento escreve
 1. `src/js/segmento.js`: nome, cores do ícone, planos, quem é o usuário (motorista, parceiro, técnico) e as **coleções** com as regras de acesso.
@@ -34,6 +35,25 @@ e dentro da pasta atendem todas as empresas daquele segmento.
 4. **Banco**: escolha a pasta (`schema`) no `segmento.js` › `node supabase/gerar.mjs` › cole o `instalar.sql` no easyapp-fabrica e exponha a pasta (passo a passo em `docs/INSTALACAO.md`).
 5. **No ar**: preencha `src/js/config.js`, push na `main`, ative o Pages.
 6. **Venda**: mostre a demonstração; o cliente cria a conta sozinho e entra em teste.
+
+## Assistente (IA) e botão +
+- Vem ligado em todo app: ✦ no topo (celular) e no menu lateral (computador), e o **+** flutuante em cada tela.
+- O assistente lê o que o usuário já enxerga no app (as regras do banco valem) e responde, analisa e **propõe** mudanças
+  (criar, alterar, apagar). Nada é gravado sem o usuário tocar em **Aplicar** (com **Desfazer**); a gravação é a normal do app.
+- Uma função só atende todos os apps (`supabase/functions/assistente`, projeto easyapp-fabrica, publicada pelo `funcoes.yml`).
+  Custo de cada pedido em `public.fabrica_ia` (`supabase/fabrica.sql`). Limite do mês por empresa: `fabrica_config.ia_limite_padrao`
+  (R$ 30 de custo) ou `fabrica_ia_limites`; demonstração: `ia_limite_demo_dia` (R$ 10 por dia, somando todos os apps).
+- O que cada segmento escreve:
+  ```js
+  // segmento.js
+  assistente: { instrucoes: 'regras do negócio: como numerar, status possíveis, o que preencher ao criar…',
+                usuario: { instrucoes: '…' } },          // false desliga; usuario: false tira do app de campo
+  // gestao/app.js e usuario/app.js (criarApp)
+  mais: (rota, params, s) => [{ icone: 'plus', texto: 'Nova viagem', act: 'novaViagem' }, { texto: 'Abrir conferência', h: '#/conferir' },
+                              { texto: 'Quanto gastei de diesel?', ia: 'Quanto gastei de diesel este mês?', enviar: true }],
+  sugestoes: (rota, params, s) => ['perguntas prontas do assistente nesta tela'],
+  iaExtras: (s) => ({ fechamentos: { nome: 'Fechamento das viagens (calculado)', docs: [...] } }),  // números das telas, só leitura
+  ```
 
 ## Regras de acesso das coleções (resumo)
 ```js

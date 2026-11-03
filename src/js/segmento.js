@@ -37,6 +37,13 @@ export const SEGMENTO = {
     ordens: { nome: 'Ordens de serviço', leitura: 'proprio', escrita: 'proprio', ref: 'tecnicoId', protegidos: ['valor', 'clienteId', 'tecnicoId', 'descricao', 'data'], trava: 'conferida' },
   },
 
+  // Assistente (IA): ✦ no topo e no botão +. false desliga; usuario: false tira do app de campo.
+  // instrucoes: o que o assistente precisa saber deste negócio (regras, números, como se cria um registro).
+  assistente: {
+    instrucoes: 'Ordem de serviço nova: numero = o maior número existente + 1; status "aberta"; conferida false. Status possíveis: aberta, em_andamento, concluida.',
+    usuario: { instrucoes: 'O técnico só altera status e observações das ordens dele; o resto quem muda é o escritório.' },
+  },
+
   // Nomes amigáveis dos campos (registro de atividades)
   campos: { nome: 'nome', telefone: 'telefone', endereco: 'endereço', status: 'situação', valor: 'valor', obs: 'observações', conferida: 'conferida', tecnicoId: 'técnico', clienteId: 'cliente', data: 'data', descricao: 'descrição' },
 };

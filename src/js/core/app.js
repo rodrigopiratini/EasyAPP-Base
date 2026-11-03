@@ -12,6 +12,8 @@ import { SEGMENTO } from '../segmento.js';
 import { esc, date, today, money0, int } from './fmt.js';
 import { icon, router, delegate, modal, closeModal, confirmar, toast, empty, waLink, download, asset, instalar, bannerInstalar, dispensarBanner, registerSW, verificarAtualizacao, versaoApp, filtrarBusca, buscaInput, iniciais, badge, kpi, moneyInput, parseMoney, stepHandler } from './ui.js';
 import { mountCharts, resetCharts } from './charts.js';
+import { criarAssistente } from './assistente.js';
+import { CONFIG } from '../config.js';
 
 // Segmento sem app de campo (só Gestão): SEGMENTO.usuario = null
 const TEM_USUARIO = !!SEGMENTO.usuario;
@@ -26,6 +28,66 @@ export function criarApp(def) {
   const INICIO = def.inicio || (gestao ? '#/painel' : '#/inicio');
   let current = { view: null, params: {}, pattern: '' };
   const buscas = {};
+  let tituloAtual = '';
+
+  // ---------- Assistente (IA) e botão + ----------
+  // segmento.js › assistente: false (desliga) | { usuario: false, instrucoes, gestao: { instrucoes, sugestoes }, usuario: {…} }
+  // Telas: def.mais(pattern, params, s) → itens do + ({ icone, texto, act, dados } | { texto, h } | { texto, ia, enviar })
+  //        def.sugestoes(pattern, params, s) → perguntas prontas para o assistente naquela tela
+  //        def.iaExtras(s) → { nome: { nome, docs } }: números que as telas calculam (o assistente só lê)
+  const CFG_IA = SEGMENTO.assistente === false ? null : { ...(SEGMENTO.assistente || {}) };
+  const IA = !!CFG_IA && CFG_IA[tipo] !== false;
+  const ia = IA ? criarAssistente({
+    pasta: SEGMENTO.schema || 'public', app: tipo, idApp: SEGMENTO.id, nome: SEGMENTO.nome,
+    descricao: (gestao ? SEGMENTO.gestao?.descricao : SEGMENTO.usuario?.descricao) || SEGMENTO.slogan || '',
+    demo: store.modo === 'local', url: CONFIG.supabaseUrl, chave: CONFIG.supabaseKey, token: store.token,
+    get: () => visivel(), commit: (fn, msg) => store.commit(fn, msg), toast,
+    colecoes: () => {
+      const leitura = !!(store.empresa() && !store.empresa().liberada) || store.suporte()?.modo === 'leitura';
+      return Object.fromEntries(Object.entries(SEGMENTO.colecoes).filter(([, c]) => gestao || (c.leitura || 'gestao') !== 'gestao')
+        .map(([k, c]) => [k, { nome: c.nome || k, escrita: !leitura && (gestao || c.escrita === 'proprio') }]));
+    },
+    contexto: () => {
+      const p = store.perfil() || {};
+      const sub = (CFG_IA[tipo] && typeof CFG_IA[tipo] === 'object') ? CFG_IA[tipo] : {};
+      return {
+        empresa: store.empresa()?.nome || S()?.meta?.empresa || '',
+        papel: gestao ? `${PAPEL[p.papel] || 'Gestão'}, no app de gestão (${SEGMENTO.gestao?.nome || 'Gestão'})` : `${U.papel}, no app ${U.nome || U.curto} (só vê e altera o que é dele)`,
+        quem: gestao ? (p.email || '') : (def.nomeUsuario?.(S()) || ''),
+        ref: gestao ? null : store.meuRef(),
+        instrucoes: [CFG_IA.instrucoes, sub.instrucoes].filter(Boolean).join('\n'),
+        campos: SEGMENTO.campos || {},
+      };
+    },
+    tela: () => ({ rota: location.hash, titulo: tituloAtual.replace(/<[^>]+>/g, '') }),
+    sugestoes: () => def.sugestoes?.(current.pattern, current.params, S()) || (CFG_IA[tipo] && CFG_IA[tipo].sugestoes) || [],
+    extras: () => def.iaExtras?.(S()) || null,   // { nome: { nome, docs } } — números calculados pelas telas (só leitura)
+  }) : null;
+  // o que o usuário enxerga (na nuvem o banco já filtrou; na demonstração o aparelho tem tudo)
+  function visivel() {
+    const s = S();
+    if (gestao || store.modo === 'nuvem' || !s) return s;
+    const ref = store.meuRef(), out = { ...s };
+    for (const [k, c] of Object.entries(SEGMENTO.colecoes)) {
+      const l = c.leitura || 'gestao';
+      if (l === 'gestao') out[k] = [];
+      else if (l === 'proprio') out[k] = (s[k] || []).filter((d) => (c.ref === 'id' ? d.id : d[c.ref]) === ref);
+    }
+    return out;
+  }
+  function itensMais() {
+    return (def.mais?.(current.pattern, current.params, S()) || []).filter(Boolean).map((x) => ({ ...x, icone: x.icone?.startsWith?.('<') ? x.icone : icon(x.icone || 'plus') }));
+  }
+  function escolherMais(x) {
+    if (x.h) { location.hash = x.h; return; }
+    if (x.fn) return x.fn();
+    const fn = def.acoes?.[x.act] || comuns[x.act];
+    if (!fn) return;
+    const el = document.createElement('button');
+    Object.entries(x.dados || {}).forEach(([k, v]) => { el.dataset[k] = v; });
+    fn(el, new Event('click'));
+  }
+  const temMais = () => IA || !!def.mais;
 
   // ---------- Navegação ----------
   const extrasNav = () => gestao ? [
@@ -71,19 +133,23 @@ export function criarApp(def) {
     const bs = def.badges?.(s) || {};
     const b = (h) => (bs[h] ? `<span class="badge dot">${bs[h]}</span>` : '');
     const quem = gestao ? (store.empresa()?.nome || s.meta.empresa || SEGMENTO.gestao.curto) : (def.nomeUsuario?.(s) || U.papel);
+    tituloAtual = title;
+    const btIA = IA ? `<button class="eai-topo" data-act="eaiAbrir" aria-label="Assistente" title="Assistente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></button>` : '';
     return `<div class="shell">
       <aside class="side">
         <div class="brand">${marca()}<div class="who">${esc(gestao ? SEGMENTO.gestao.curto : U.curto)} · ${esc(quem)}</div></div>
         ${navItens().map(([h, ic, n]) => `<a class="nav-a ${isOn(h) ? 'on' : ''}" href="${h}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}
+        ${IA ? `<a class="nav-a" href="#" data-act="eaiAbrir">${icon('spark')}<span>Assistente</span></a>` : ''}
         <div class="foot">${syncBadge()}<br><a href="#" data-act="logout" style="color:inherit">Sair</a></div>
       </aside>
       <div>
         <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button><div class="t ellipsis">${title}</div>`
           : SEGMENTO.logo ? `<span style="display:grid;place-items:center">${icon(SEGMENTO.icone || 'home')}</span><div class="t ellipsis">${title}</div>`
-          : `<div class="ea-marca t">${barras}${nomeMarca}</div>`}${def.topoDireita?.(s) || ''}</header>
+          : `<div class="ea-marca t">${barras}${nomeMarca}</div>`}${def.topoDireita?.(s) || ''}${btIA}</header>
         <main class="main">${avisoSuporte()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
       </div>
       <nav class="tabbar">${tabs().map(([h, ic, n]) => `<a href="${h}" class="${isOn(h) ? 'on' : ''}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}</nav>
+      ${temMais() ? '<button class="eai-fab" data-act="eaiMais" aria-label="Ações e assistente">+</button>' : ''}
     </div>`;
   }
   const pageHead = (title, sub = '', actions = '') => `<div class="pagehead"><div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div><div class="row wrap">${actions}</div></div>`;
@@ -337,7 +403,9 @@ export function criarApp(def) {
     install: instalar,
     semBanner: () => { dispensarBanner(); rerender(); },
     atualizarApp: () => verificarAtualizacao(true),
-    logout: async () => { await store.sair(); telaLogin = 'entrar'; location.hash = INICIO; rerender(); },
+    eaiAbrir: () => ia?.abrir(),
+    eaiMais: () => { const itens = itensMais(); if (ia) ia.menuMais(itens, { aoEscolher: escolherMais }); else if (itens.length) escolherMais(itens[0]); },
+    logout: async () => { ia?.limpar(); await store.sair(); telaLogin = 'entrar'; location.hash = INICIO; rerender(); },
     // login
     pin: (el) => { if (el.value && el.nextElementSibling) el.nextElementSibling.focus(); const f = el.form; if ([...f.querySelectorAll('.pin input')].every((i) => i.value)) f.requestSubmit(); },
     loginDemo: (f) => { const pin = [0, 1, 2, 3].map((i) => f.elements['p' + i].value).join(''); if (store.entrarDemoGestao(pin)) depoisDeEntrar(); else { toast('PIN incorreto'); f.reset(); f.elements.p0.focus(); } },
@@ -409,5 +477,5 @@ export function criarApp(def) {
     });
   }
 
-  return { S, tela, pageHead, busca, lerForm, rerender, iniciar, get current() { return current; }, store, U };
+  return { S, tela, pageHead, busca, lerForm, rerender, iniciar, get current() { return current; }, store, U, ia };
 }
