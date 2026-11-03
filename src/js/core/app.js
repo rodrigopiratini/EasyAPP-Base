@@ -113,7 +113,9 @@ export function criarApp(def) {
   function avisoSuporte() {
     const sp = store.suporte();
     if (!sp) return '';
-    return `<div class="aviso ${sp.modo === 'edicao' ? 'crit' : ''}">${icon('shield')}<span class="grow"><b>Modo suporte</b> · ${esc(sp.nome || '')} · ${sp.modo === 'edicao' ? 'leitura e edição: o que você mudar fica na conta do cliente' : 'só leitura'}</span></div>`;
+    const ate = sp.ate ? new Date(sp.ate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+    return `<div class="aviso ${sp.modo === 'edicao' ? 'crit' : ''}">${icon('shield')}<span class="grow"><b>Suporte</b> · ${esc(sp.nome || '')} · ${sp.modo === 'edicao' ? 'ver e corrigir: o que você mudar fica na conta do cliente' : 'só ver'}${ate ? ` · até ${ate}` : ''}</span>
+      ${gestao ? '<a href="#/plataforma" class="btn sm ghost">Trocar</a>' : ''}<button class="btn sm" data-act="sairSuporte">Sair</button></div>`;
   }
   function avisoAssinatura() {
     const e = store.empresa();
@@ -172,7 +174,7 @@ export function criarApp(def) {
       <div class="card col"><b>Sou o dono</b><div class="small muted">Crie sua empresa e use grátis por ${SEGMENTO.diasTeste || 30} dias.</div>
         <label class="field"><span>Nome da empresa</span><input class="input" name="empresa" autocomplete="organization"></label><button class="btn block" data-act="criarEmpresa">Criar minha empresa</button></div>
       <div class="card col"><b>Recebi um convite</b><label class="field"><span>Código do convite</span><input class="input" name="convite" autocapitalize="characters" style="text-transform:uppercase"></label><button class="btn ghost block" data-act="usarConvite">Entrar com convite</button></div>
-      ${p?.admin ? '<a class="btn ghost block" href="#/plataforma" data-act="abrirPlataforma">Abrir painel da plataforma</a>' : ''}
+      ${p?.admin ? '<a class="btn ghost block" href="#/plataforma" data-act="abrirPlataforma">Plataforma: abrir a empresa de um cliente</a>' : ''}
       <a href="#" class="small center" data-act="logout">Usar outra conta</a>`, 'nada');
     const novo = telaLogin === 'novo';
     return caixa(SEGMENTO.gestao.curto, `
@@ -312,6 +314,55 @@ export function criarApp(def) {
   async function carregarPlataforma() {
     try { plat.dados = await store.rpc('plataforma_empresas'); plat.erro = null; } catch (e) { plat.erro = e.message; }
     pintarPlataforma();
+    // vindo do painel de gestão: #/plataforma?abrir=<empresa>
+    const pedida = current.pattern === '/plataforma' && current.params?.query?.abrir;
+    if (pedida && plat.dados?.some((e) => e.id === pedida)) { history.replaceState(null, '', location.pathname + location.search + '#/plataforma'); escolherModo(pedida); }
+  }
+  function escolherModo(id) {
+    const e = plat.dados.find((x) => x.id === id);
+    modal({ title: `Abrir ${esc(e.nome)}`, body: `<p class="small">O app mostra a empresa como o dono vê, por 2 horas. A abertura fica no registro de atividades da empresa.</p>`,
+      foot: `<button class="btn ghost" data-act="v">Só ver</button><button class="btn" data-act="c">Ver e corrigir</button>`,
+      handlers: { v: () => { closeModal(); abrirEmpresa(id, 'leitura'); }, c: () => { closeModal(); abrirEmpresa(id, 'edicao'); } } });
+  }
+  // Verificação em duas etapas: o banco só abre empresas de clientes com ela confirmada nesta sessão
+  function pedirCodigo(factorId, texto) {
+    return new Promise((res) => {
+      let feito = false;
+      modal({ title: 'Verificação em duas etapas', body: `<form id="fmfa" class="col" data-onsubmit="ok">${texto}
+        <label class="field"><span>Código de 6 dígitos</span><input class="input" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="font-size:22px;letter-spacing:.3em;text-align:center" required></label></form>`,
+        foot: '<button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="ok">Confirmar</button>',
+        onMount: (m) => m.querySelector('[name=codigo]').focus(),
+        handlers: { ok: async () => {
+          const c = document.querySelector('#fmfa [name=codigo]').value;
+          const b = document.querySelector('.overlay [data-act=ok]');
+          if (b) b.disabled = true;
+          try { await store.mfa.confirmar(factorId, c); feito = true; closeModal(); res(true); } catch (err) { toast(err.message); if (b) b.disabled = false; }
+        } } });
+      const fechou = new MutationObserver(() => { if (!document.getElementById('fmfa')) { fechou.disconnect(); if (!feito) res(false); } });
+      fechou.observe(document.body, { childList: true });
+    });
+  }
+  async function garantirMfa() {
+    if ((await store.mfa.nivel()) === 'aal2') return true;
+    const f = await store.mfa.fator();
+    if (f) return pedirCodigo(f.id, '<p class="small">Digite o código que aparece no seu app autenticador.</p>');
+    const n = await store.mfa.cadastrar();
+    return pedirCodigo(n.id, `<p class="small">Para abrir empresas de clientes é preciso a verificação em duas etapas (configura uma vez; vale para todos os apps da fábrica). Leia o QR code com um app autenticador (Google Authenticator, Microsoft Authenticator, 1Password…) e digite o código.</p>
+      <div class="center"><img src="${n.qr}" alt="QR code" width="190" height="190" style="background:#fff;padding:8px;border-radius:12px"></div>
+      <div class="tiny muted center">Sem câmera? Digite a chave no app: <code style="user-select:all;word-break:break-all">${esc(n.segredo)}</code></div>`);
+  }
+  async function abrirEmpresa(id, modo) {
+    const e = plat.dados?.find((x) => x.id === id);
+    if (modo === 'edicao' && !(await confirmar(`Abrir ${esc(e?.nome || 'a empresa')} para ver e corrigir? O que você mudar fica na conta do cliente.`, { ok: 'Abrir' }))) return;
+    try {
+      if (!(await garantirMfa())) return;
+      const ok = await store.abrirEmpresa(id, modo);
+      if (!ok) throw new Error('não consegui abrir a empresa');
+      ia?.limpar();
+      await def.aposEntrar?.();
+      toast(`${e?.nome || 'Empresa'} aberta ${modo === 'edicao' ? 'para ver e corrigir' : 'só para ver'}`);
+      location.hash = INICIO; go();
+    } catch (err) { toast(/MFA/.test(err.message) ? 'Confirme a verificação em duas etapas' : err.message); }
   }
   const SIT = { teste: ['Teste', 'info'], ativa: ['Ativa', 'ok'], suspensa: ['Suspensa', 'crit'], cancelada: ['Cancelada', ''] };
   function pintarPlataforma() {
@@ -323,11 +374,12 @@ export function criarApp(def) {
     const ativas = es.filter((e) => e.situacao === 'ativa');
     const mrr = ativas.reduce((a, e) => a + (+e.valorMensal || 0), 0);
     el.innerHTML = `<div class="grid g4">${kpi('Empresas', int(es.length), `${es.filter((e) => e.situacao === 'teste').length} em teste`)}${kpi('Pagantes', int(ativas.length), `${es.filter((e) => !e.liberada).length} bloqueadas`)}${kpi('Receita mensal', money0(mrr), 'soma das ativas')}${kpi('Usuários de campo', int(es.reduce((a, e) => a + e.usuarios, 0)), 'acessos ativos')}</div>
-      <div class="card pad-0 mt"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Situação</th><th class="hide-m">Dono</th><th class="r">Usuários</th><th class="r hide-m">Registros</th><th class="hide-m">Último uso</th><th>Vence</th></tr></thead>
-      <tbody>${es.map((e) => `<tr class="click" data-act="editarEmpresa" data-id="${e.id}" data-busca="${esc(e.nome + ' ' + (e.dono || ''))}"><td><b>${esc(e.nome)}</b><div class="tiny muted">${esc(e.plano)}${e.valorMensal ? ' · ' + money0(e.valorMensal) : ''}</div></td><td>${badge(SIT[e.situacao]?.[0] || e.situacao, e.liberada ? SIT[e.situacao]?.[1] : 'crit')}</td><td class="hide-m small">${esc(e.dono || '—')}</td><td class="r">${int(e.usuarios)}</td><td class="r hide-m">${int(e.registros)}</td><td class="hide-m small">${e.ultimoUso ? date(e.ultimoUso.slice(0, 10)) : '—'}</td><td class="small">${date(e.situacao === 'teste' ? e.testeAte : e.pagoAte)}</td></tr>`).join('') || `<tr><td colspan="7">${empty('Nenhuma empresa cadastrada ainda.')}</td></tr>`}</tbody></table></div></div>`;
+      <div class="card pad-0 mt"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Situação</th><th class="hide-m">Dono</th><th class="r">Usuários</th><th class="r hide-m">Registros</th><th class="hide-m">Último uso</th><th>Vence</th><th class="r">Abrir</th></tr></thead>
+      <tbody>${es.map((e) => `<tr class="click" data-act="editarEmpresa" data-id="${e.id}" data-busca="${esc(e.nome + ' ' + (e.dono || ''))}"><td><b>${esc(e.nome)}</b><div class="tiny muted">${esc(e.plano)}${e.valorMensal ? ' · ' + money0(e.valorMensal) : ''}</div></td><td>${badge(SIT[e.situacao]?.[0] || e.situacao, e.liberada ? SIT[e.situacao]?.[1] : 'crit')}</td><td class="hide-m small">${esc(e.dono || '—')}</td><td class="r">${int(e.usuarios)}</td><td class="r hide-m">${int(e.registros)}</td><td class="hide-m small">${e.ultimoUso ? date(e.ultimoUso.slice(0, 10)) : '—'}</td><td class="small">${date(e.situacao === 'teste' ? e.testeAte : e.pagoAte)}</td>
+        <td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-act="abrirEmpresa" data-id="${e.id}" data-modo="leitura" title="Abrir só para ver">Ver</button> <button class="btn sm ghost" data-act="abrirEmpresa" data-id="${e.id}" data-modo="edicao" title="Abrir para ver e corrigir">Corrigir</button></td></tr>`).join('') || `<tr><td colspan="8">${empty('Nenhuma empresa cadastrada ainda.')}</td></tr>`}</tbody></table></div></div>`;
   }
   function vPlataforma() {
-    const html = `${pageHead('Plataforma', `Empresas que usam o ${esc(SEGMENTO.nome)}: situação, vencimento e uso.`, busca('Buscar empresa…') + `<button class="btn ghost" data-act="recarregarPlataforma">${icon('refresh')}</button>`)}<div id="ea-plataforma"></div>`;
+    const html = `${pageHead('Plataforma', `Empresas que usam o ${esc(SEGMENTO.nome)}: situação, vencimento e uso. <b>Ver</b> e <b>Corrigir</b> abrem a empresa aqui no app, como o dono vê, por 2 horas (fica no registro de atividades dela).`, busca('Buscar empresa…') + `<button class="btn ghost" data-act="recarregarPlataforma">${icon('refresh')}</button>`)}<div id="ea-plataforma"></div>`;
     return S() ? tela('Plataforma', html) : `<main class="main" style="margin:0 auto">${html}<div class="mt"><a href="#" data-act="logout">Sair</a></div></main>`;
   }
   function modalEmpresa(id) {
@@ -446,6 +498,8 @@ export function criarApp(def) {
     zerar: () => confirmar('Apagar todos os dados fictícios e começar do zero (só neste navegador)?', { ok: 'Começar do zero' }).then((y) => y && (store.reset({ vazio: true }), toast('Pronto, tudo zerado'))),
     // plataforma
     editarEmpresa: (el) => modalEmpresa(el.dataset.id),
+    abrirEmpresa: (el) => abrirEmpresa(el.dataset.id, el.dataset.modo),
+    sairSuporte: async () => { try { ia?.limpar(); const ok = await store.sairSuporte(); if (ok) await def.aposEntrar?.(); toast('Você saiu da empresa do cliente'); location.hash = ok ? INICIO : '#/plataforma'; go(); } catch (e) { toast(e.message); } },
     recarregarPlataforma: () => carregarPlataforma(),
   };
   delegate(root, new Proxy({}, { get: (_, k) => def.acoes?.[k] || comuns[k] }));

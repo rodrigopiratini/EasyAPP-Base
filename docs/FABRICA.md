@@ -11,6 +11,7 @@ e dentro da pasta atendem todas as empresas daquele segmento.
 | Várias empresas no mesmo banco, cada uma isolada | `supabase/base.sql` |
 | Cadastro livre do dono com período de teste, convite de gestores, login do usuário por código + PIN | `src/js/core/app.js` |
 | Assinatura: teste / ativa / suspensa, bloqueio de gravações quando vence, painel **Plataforma** | `base.sql` + `core/app.js` |
+| **Suporte**: o administrador abre a empresa de um cliente no próprio app (Plataforma › Ver / Corrigir), com verificação em duas etapas, por 2 horas | `base.sql` (`suporte_visitas`) + `core/app.js` |
 | Registro de atividades (quem fez o quê) | `base.sql` + `core/app.js` |
 | Sincronização em tempo real e fila offline | `src/js/core/cloud.js`, `store.js` |
 | Modo demonstração com dados fictícios (`?demo=1`) | `src/js/seed.js` |

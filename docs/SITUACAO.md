@@ -24,12 +24,16 @@
 - Apagar as organizações vazias easyapp-store e Golden (o projeto do Financial já foi transferido para a EasyAPP em 03/11).
 - Apagar Vercel (golden-crm) e os projetos pausados.
 
-## Painel de suporte (ligado em 03/11/2026)
-Aba **🧩 Apps da fábrica** no painel do Financial (`easyapp-financial/site/gestao.html` 1.16.0) → ação `fabrica` da função
-`gestao` do Financial → função `gestao-fabrica` (easyapp-fabrica, sem JWT) → `supabase/fabrica.sql`. "Modo suporte" no núcleo
-(`#suporte=` abre o app como o dono numa sessão só daquela aba). Feito: `fabrica.sql` rodado, `gestao-fabrica` publicada,
-segredos `FABRICA_SEGREDO` (nos dois projetos, mesma senha) e `FABRICA_URL` (no Financial). O workflow `funcoes.yml` do
-Financial passou a usar `--yes` (a CLI nova do Supabase pede confirmação; sem isso nada era publicado).
+## Suporte: abrir a empresa de um cliente (desde 03/11/2026, à noite)
+Quem está em `<pasta>.plataforma_admins` entra no app de Gestão com o próprio e-mail › **Plataforma** › **Ver** (só ver) ou
+**Corrigir** (ver e corrigir) na linha da empresa. O app recarrega com os dados dela, como o dono vê, com a faixa "Suporte · empresa
+· até HH:MM" (**Trocar** / **Sair**). Regras no banco (`base.sql`): tabela `suporte_visitas`, `suporte_abrir` / `suporte_sair`;
+a visita vale 2 horas e só com a **verificação em duas etapas** (app autenticador) confirmada na sessão (aal2): na primeira vez o app
+mostra o QR code. "Só ver" o banco recusa qualquer gravação. O que o suporte faz fica no registro de atividades como "Suporte (e-mail)".
+O painel do Financial (aba 🧩 Apps da fábrica) só tem o atalho **abrir ↗**, que leva a `#/plataforma?abrir=<empresa>` no app.
+O antigo modo suporte (`#suporte=`, sessão do dono gerada pela `gestao-fabrica` › `abrir_como`) foi retirado.
+Painel de gestão (aba **🧩 Apps da fábrica**, `easyapp-financial/site/gestao.html`) → ação `fabrica` da função `gestao` do
+Financial → `gestao-fabrica` (easyapp-fabrica, sem JWT) → `supabase/fabrica.sql`: lista, pessoas, assinatura e avisos por push.
 
 ## Próximos (pedidos do dono em 03/11/2026)
 - ~~Trazer o Ducairo do Financial para o Frota~~ **feito em 03/11/2026**: empresa **TR EDU** na pasta `frota`, login copiado

@@ -9,7 +9,7 @@
 //
 // Push (Web Push) para o dono da plataforma: { op: 'push_chave' | 'push_inscrever' | 'push_remover' | 'push_testar' } (pelo painel)
 // e { op: 'avisar_acesso' } (chamada pelo banco, com o x-aviso-segredo de fabrica_config). Chaves VAPID em fabrica_config.
-// Ações (POST, JSON): { op: 'listar' } · { op: 'pessoas', pasta, empresa, dias } · { op: 'abrir_como', pasta, empresa, modo, quem } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
+// Ações (POST, JSON): { op: 'listar' } · { op: 'pessoas', pasta, empresa, dias } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
@@ -85,25 +85,6 @@ Deno.serve(async (req) => {
   if (b.op === 'pessoas') {
     const { data, error } = await adm.rpc('fabrica_pessoas', { p_pasta: String(b.pasta || ''), p_empresa: b.empresa || null, p_dias: Math.min(365, Math.max(1, Number(b.dias) || 60)) });
     return error ? json({ erro: error.message }) : json({ ok: true, ...data });
-  }
-
-  if (b.op === 'abrir_como') {
-    const pasta = String(b.pasta || ''), modo = b.modo === 'edicao' ? 'edicao' : 'leitura';
-    const { data: email, error: e1 } = await adm.rpc('fabrica_dono', { p_pasta: pasta, p_empresa: b.empresa || null });
-    if (e1 || !email) return json({ erro: e1?.message || 'esta empresa ainda não tem dono com e-mail' });
-    // link de acesso gerado pelo próprio Supabase (não envia e-mail, não mexe na senha), trocado aqui por uma sessão
-    const { data: lk, error: eL } = await adm.auth.admin.generateLink({ type: 'magiclink', email });
-    const hash = (lk as any)?.properties?.hashed_token;
-    if (eL || !hash) return json({ erro: 'não consegui gerar o acesso: ' + (eL?.message || '') });
-    const rv = await fetch(URL_SB + '/auth/v1/verify', { method: 'POST',
-      headers: { apikey: Deno.env.get('SUPABASE_ANON_KEY')!, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'magiclink', token_hash: hash }) });
-    const sv = await rv.json().catch(() => ({}));
-    if (!rv.ok || !sv.access_token) return json({ erro: 'o acesso foi recusado: ' + (sv.msg || sv.error_description || rv.status) });
-    await adm.rpc('fabrica_registrar_suporte', { p_pasta: pasta, p_empresa: b.empresa || null, p_quem: String(b.quem || 'painel'), p_modo: modo });
-    const { data: app } = await adm.from('fabrica_apps').select('url_gestao,nome').eq('pasta', pasta).maybeSingle();
-    return json({ ok: true, email, modo, url: app?.url_gestao, app: app?.nome,
-      sessao: { access_token: sv.access_token, refresh_token: sv.refresh_token, expires_in: sv.expires_in } });
   }
 
   if (b.op === 'assinatura') {

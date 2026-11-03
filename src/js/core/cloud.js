@@ -12,26 +12,11 @@ const LOTE = 200;
 const SCHEMA = SEGMENTO.schema || 'public'; // pasta do app no banco (vários apps no mesmo projeto)
 
 export function criarNuvem(app, hooks) {
-  // Modo suporte: o painel de gestão abre o app como o cliente passando o acesso em #suporte=… .
-  // Essa sessão fica só nesta aba (sessionStorage) e não substitui o login de quem usa o navegador.
-  const SUP_KEY = `${SEGMENTO.id}-suporte-${app}`;
-  let suporte = null;
-  try {
-    const h = new URLSearchParams(location.hash.startsWith('#suporte=') ? location.hash.slice(1) : '');
-    if (h.get('suporte')) {
-      const d = JSON.parse(decodeURIComponent(escape(atob(h.get('suporte')))));
-      sessionStorage.setItem(SUP_KEY, JSON.stringify(d));
-      history.replaceState(null, '', location.pathname + location.search + '#/');
-    }
-    suporte = JSON.parse(sessionStorage.getItem(SUP_KEY) || 'null');
-  } catch { suporte = null; }
   const sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
     db: { schema: SCHEMA },
-    auth: suporte
-      ? { storageKey: SUP_KEY + '-auth', storage: window.sessionStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
-      : { storageKey: `${SEGMENTO.id}-auth-${app}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: { storageKey: `${SEGMENTO.id}-auth-${app}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
-  const OUTBOX = suporte ? SUP_KEY + '-fila' : `${SEGMENTO.id}-fila-${app}`;
+  const OUTBOX = `${SEGMENTO.id}-fila-${app}`;
   let state = null;
   let perfil = null;
   let snap = {};
@@ -41,6 +26,9 @@ export function criarNuvem(app, hooks) {
   let status = 'online';
   const empresa = () => perfil?.empresaId;
   const ehGestao = () => perfil?.papel === 'dono' || perfil?.papel === 'gestor';
+  // Visita de suporte: o administrador da plataforma abriu uma empresa (Plataforma › Abrir). Vem do banco em meu_perfil.
+  const suporte = () => (perfil?.suporte ? { ...perfil.suporte, nome: perfil.empresa?.nome || '' } : null);
+  let fimVisita = null;
 
   function lerFila() { try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); } catch { return []; } }
   function salvarFila() { try { localStorage.setItem(OUTBOX, JSON.stringify(fila)); } catch {} }
@@ -168,7 +156,10 @@ export function criarNuvem(app, hooks) {
 
   async function iniciarSessao() {
     await lerPerfil();
-    if (!perfil?.empresaId) return false;
+    clearTimeout(fimVisita);
+    // a visita vence sozinha (2 h): o app volta para a conta do próprio administrador
+    if (perfil?.suporte?.ate) fimVisita = setTimeout(() => recomecar().then(() => hooks.onChange?.('recarregado', true)), Math.max(1000, new Date(perfil.suporte.ate) - Date.now() + 1000));
+    if (!perfil?.empresaId) { canal?.unsubscribe(); state = null; return false; }
     await carregar();
     ouvir();
     enviar();
@@ -180,12 +171,15 @@ export function criarNuvem(app, hooks) {
   // O modo suporte não conta como presença do cliente.
   let presenca = null;
   function sinalPresenca() {
-    if (suporte || presenca) return;
+    if (suporte() || presenca) return;
     const bater = () => { if (document.visibilityState === 'visible') sb.rpc('sinal').then(() => {}, () => {}); };
     bater();
     presenca = setInterval(bater, 120000);
     document.addEventListener('visibilitychange', bater);
   }
+
+  // troca de empresa (visita de suporte): recarrega perfil, dados e o canal de tempo real
+  async function recomecar() { canal?.unsubscribe(); return iniciarSessao(); }
 
   const erroLogin = (m) => (m === 'Invalid login credentials' ? 'E-mail ou senha incorretos' : m === 'Email not confirmed' ? 'Confirme o e-mail antes de entrar (veja sua caixa de entrada)' : m);
 
@@ -196,9 +190,8 @@ export function criarNuvem(app, hooks) {
     get status() { return fila.length && status === 'online' ? 'enviando' : status; },
     get pendentes() { return fila.length; },
     registrarMudancas,
-    get suporte() { return suporte; },
+    get suporte() { return suporte(); },
     async iniciar() {
-      if (suporte?.access_token) { await sb.auth.setSession({ access_token: suporte.access_token, refresh_token: suporte.refresh_token }); delete suporte.access_token; sessionStorage.setItem(SUP_KEY, JSON.stringify(suporte)); }
       const { data } = await sb.auth.getSession();
       if (!data.session) return false;
       try { return await iniciarSessao(); } catch (e) { console.warn(e); hooks.onErro?.('Sem conexão com o servidor. Tente novamente.'); return false; }
@@ -245,7 +238,8 @@ export function criarNuvem(app, hooks) {
     },
     async sair() {
       canal?.unsubscribe();
-      if (suporte) { try { sessionStorage.removeItem(SUP_KEY); } catch {} }
+      clearTimeout(fimVisita);
+      if (suporte()) await sb.rpc('suporte_sair').then(() => {}, () => {});
       await sb.auth.signOut();
       perfil = null; state = null;
     },
@@ -259,6 +253,32 @@ export function criarNuvem(app, hooks) {
       async apagar(ref) { const { error } = await sb.from('acessos').delete().eq('empresa_id', empresa()).eq('ref', ref); if (error) throw new Error(error.message); },
     },
     async renomearEmpresa(nome) { const { error } = await sb.from('empresas').update({ nome }).eq('id', empresa()); if (error) throw new Error(error.message); perfil.empresa.nome = nome; },
+    // ---- Visita de suporte (administrador) ----
+    // Verificação em duas etapas (app autenticador): o banco só abre empresas com a sessão em aal2.
+    mfa: {
+      async nivel() { const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel(); return data?.currentLevel || 'aal1'; },
+      async fator() { const { data } = await sb.auth.mfa.listFactors(); return (data?.totp || []).find((f) => f.status === 'verified') || null; },
+      async cadastrar() {
+        const { data: l } = await sb.auth.mfa.listFactors();
+        for (const f of l?.all || []) if (f.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: f.id });
+        const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: `${SEGMENTO.nome} ${new Date().toISOString().slice(0, 10)}` });
+        if (error) throw new Error(error.message);
+        return { id: data.id, qr: data.totp.qr_code, segredo: data.totp.secret };
+      },
+      async confirmar(factorId, code) {
+        const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: String(code).replace(/\D/g, '') });
+        if (error) throw new Error(/invalid|expired/i.test(error.message) ? 'Código incorreto ou vencido' : error.message);
+      },
+    },
+    async abrirEmpresa(id, modo) {
+      const { error } = await sb.rpc('suporte_abrir', { p_empresa: id, p_modo: modo });
+      if (error) throw new Error(error.message);
+      return recomecar();
+    },
+    async sairSuporte() {
+      await sb.rpc('suporte_sair');
+      return recomecar();
+    },
     rpc: async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(error.message); return data; },
     recarregar: async () => { await lerPerfil(); await carregar(); hooks.onChange?.('recarregado', true); },
   };
