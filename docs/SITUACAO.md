@@ -32,8 +32,8 @@ segredos `FABRICA_SEGREDO` (nos dois projetos, mesma senha) e `FABRICA_URL` (no 
 Financial passou a usar `--yes` (a CLI nova do Supabase pede confirmação; sem isso nada era publicado).
 
 ## Próximos (pedidos do dono em 03/11/2026)
-- ~~Trazer o Ducairo do Financial para o Frota~~ **feito em 03/11/2026**: empresa Transportes Ducairo na pasta `frota`, login copiado
-  (mesmo e-mail e senha), módulo Acertos mapeado para veiculos/motoristas/viagens/abastecimentos/despesas (detalhes no SITUACAO.md do Frota).
+- ~~Trazer o Ducairo do Financial para o Frota~~ **feito em 03/11/2026**: empresa **TR EDU** na pasta `frota`, login copiado
+  (mesmo e-mail e senha), campos do módulo Acertos dele recriados na viagem do Frota (detalhes no SITUACAO.md do Frota).
   Falta: conferir pelo painel e avisar o Ducairo.
 - Assistente com créditos em todos os apps (reaproveitar o assistente do Financial: módulos, aparência, carteira de créditos, Mercado Pago).
 - Token do Supabase no ambiente do Claude: desde 03/11 enxerga a Fábrica e o easyapp-store (Financial).
