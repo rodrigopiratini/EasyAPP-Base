@@ -66,7 +66,7 @@ export function editar({ titulo, colecao, campos, doc = null, inicial = null, pr
   modal({
     title: (novo ? 'Novo: ' : '') + titulo, wide: largo,
     body: formHTML('fed', campos, doc || inicial) + extra,
-    foot: `${!novo && apagar ? `<button class="btn ghost" data-act="apagar" style="margin-right:auto;color:var(--crit)">${icon('trash')}</button>` : ''}<button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="salvar">Salvar</button>`,
+    foot: `${!novo && apagar ? `<button class="btn ghost" data-act="apagar" style="margin-right:auto;color:var(--crit)">${icon('trash')} Excluir</button>` : ''}<button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="salvar">Salvar</button>`,
     handlers: {
       salvar: () => {
         const { dados, erro } = lerCampos('fed', campos);
