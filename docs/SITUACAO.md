@@ -32,12 +32,8 @@ segredos `FABRICA_SEGREDO` (nos dois projetos, mesma senha) e `FABRICA_URL` (no 
 Financial passou a usar `--yes` (a CLI nova do Supabase pede confirmação; sem isso nada era publicado).
 
 ## Próximos (pedidos do dono em 03/11/2026)
-- Trazer o Ducairo do Financial para o EasyApp Frota, com o login dele (mesmo e-mail e senha). O que se sabe: o assistente do
-  Financial criou para ele um módulo próprio (tabelas `modulos`, `modulo_versoes` com o html e as `colecoes`, e `registros`
-  com os dados), então o formato só se vê no banco do Financial. Passos: ler o módulo e os registros dele, mapear para as coleções
-  do Frota (veiculos, motoristas, clientes, viagens, abastecimentos, despesas, manutencoes; criar o que faltar no Frota), criar a
-  empresa dele na pasta `frota` (copiar o login com `scripts/migrar-projeto.mjs` ou SQL equivalente), conferir pelo painel
-  (Apps da fábrica › 👁 ver) e só então avisar o Ducairo. Não apagar nada no Financial.
-  Bloqueio em 03/11: a chave do ambiente só enxerga o projeto da Fábrica; precisa de um token com acesso ao easyapp-store.
+- ~~Trazer o Ducairo do Financial para o Frota~~ **feito em 03/11/2026**: empresa Transportes Ducairo na pasta `frota`, login copiado
+  (mesmo e-mail e senha), módulo Acertos mapeado para veiculos/motoristas/viagens/abastecimentos/despesas (detalhes no SITUACAO.md do Frota).
+  Falta: conferir pelo painel e avisar o Ducairo.
 - Assistente com créditos em todos os apps (reaproveitar o assistente do Financial: módulos, aparência, carteira de créditos, Mercado Pago).
-- Para trabalhar sem passos manuais: no ambiente do Claude, token do Supabase com acesso à organização EasyAPP inteira (Network secrets, api.supabase.com). Hoje ele só vê a Fábrica.
+- Token do Supabase no ambiente do Claude: desde 03/11 enxerga a Fábrica e o easyapp-store (Financial).
