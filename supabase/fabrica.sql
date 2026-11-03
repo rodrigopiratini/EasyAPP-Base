@@ -20,36 +20,49 @@ insert into public.fabrica_apps (pasta, nome, url_gestao, multiempresa) values
   ('golden', 'Golden CRM', 'https://rodrigopiratini.github.io/Golden/gestao/', true)
 on conflict (pasta) do update set nome = excluded.nome, url_gestao = excluded.url_gestao, multiempresa = excluded.multiempresa;
 
--- Todas as empresas de todos os apps, com dono, uso e assinatura
+-- Todas as empresas de todos os apps, com dono, uso, assinatura e as pessoas (uma linha por pessoa no painel)
 create or replace function public.fabrica_empresas() returns json
 language plpgsql stable security definer set search_path = public as $$
-declare a record; out jsonb := '[]'::jsonb; parte jsonb;
+declare a record; out jsonb := '[]'::jsonb; parte jsonb; ordem constant text := $o$case papel when 'dono' then 0 when 'gestor' then 1 else 2 end$o$;
 begin
   for a in select * from public.fabrica_apps order by nome loop
     if not exists (select 1 from information_schema.schemata where schema_name = a.pasta) then continue; end if;
     if a.multiempresa then
-      execute format($q$
+      execute replace(replace($q$
         select coalesce(jsonb_agg(jsonb_build_object(
-          'app', %L, 'appNome', %L, 'url', %L, 'id', e.id, 'nome', e.nome, 'situacao', e.situacao, 'plano', e.plano,
+          'app', $1, 'appNome', $2, 'url', $3, 'id', e.id, 'nome', e.nome, 'situacao', e.situacao, 'plano', e.plano,
           'testeAte', e.teste_ate, 'pagoAte', e.pago_ate, 'valorMensal', e.valor_mensal, 'obs', e.obs, 'criadoEm', e.criado_em,
-          'liberada', %I.empresa_liberada(e.id),
-          'dono', (select u.email from %I.perfis p join auth.users u on u.id = p.user_id where p.empresa_id = e.id and p.papel = 'dono' limit 1),
-          'gestores', (select count(*) from %I.perfis p where p.empresa_id = e.id and p.papel in ('dono', 'gestor')),
-          'equipe', (select coalesce(json_agg(u.email order by u.email), '[]') from %I.perfis p join auth.users u on u.id = p.user_id where p.empresa_id = e.id and p.papel = 'gestor'),
-          'usuarios', (select count(*) from %I.acessos x where x.empresa_id = e.id and x.ativo),
-          'registros', (select count(*) from %I.docs d where d.empresa_id = e.id),
-          'ultimoUso', (select max(em) from %I.atividade t where t.empresa_id = e.id),
-          'online', (select count(*) from %I.perfis p where p.empresa_id = e.id and p.visto_em > now() - interval '3 minutes')) order by e.criado_em), '[]'::jsonb)
-        from %I.empresas e$q$, a.pasta, a.nome, a.url_gestao, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
+          'liberada', SC.empresa_liberada(e.id),
+          'dono', (select u.email from SC.perfis p join auth.users u on u.id = p.user_id where p.empresa_id = e.id and p.papel = 'dono' limit 1),
+          'gestores', (select count(*) from SC.perfis p where p.empresa_id = e.id and p.papel in ('dono', 'gestor')),
+          'usuarios', (select count(*) from SC.acessos x where x.empresa_id = e.id and x.ativo),
+          'registros', (select count(*) from SC.docs d where d.empresa_id = e.id),
+          'ultimoUso', (select max(em) from SC.atividade t where t.empresa_id = e.id),
+          'online', (select count(*) from SC.perfis p where p.empresa_id = e.id and p.visto_em > now() - interval '3 minutes'),
+          'pessoas', (select coalesce(jsonb_agg(x order by ORDEM, x->>'nome'), '[]'::jsonb) from (
+              select jsonb_build_object('nome', coalesce(ac.nome, u.email), 'papel', p.papel, 'codigo', ac.codigo,
+                'online', coalesce(p.visto_em > now() - interval '3 minutes', false),
+                'visto', greatest(p.visto_em, (select max(t.em) from SC.atividade t where t.user_id = p.user_id))) x, p.papel
+              from SC.perfis p left join auth.users u on u.id = p.user_id left join SC.acessos ac on ac.empresa_id = p.empresa_id and ac.ref = p.ref and p.papel = 'usuario'
+              where p.empresa_id = e.id
+              union all
+              select jsonb_build_object('nome', ac.nome, 'papel', 'usuario', 'codigo', ac.codigo, 'online', false, 'visto', null), 'usuario'
+              from SC.acessos ac where ac.empresa_id = e.id and ac.ativo and not exists (select 1 from SC.perfis p where p.empresa_id = ac.empresa_id and p.ref = ac.ref and p.papel = 'usuario')) z)
+          ) order by e.criado_em), '[]'::jsonb)
+        from SC.empresas e$q$, 'SC', quote_ident(a.pasta)), 'ORDEM', replace(ordem, 'papel', 'z.papel')) into parte using a.pasta, a.nome, a.url_gestao;
     else
-      execute format($q$
-        select jsonb_build_array(jsonb_build_object('app', %L, 'appNome', %L, 'url', %L, 'id', null, 'nome', %L, 'situacao', 'ativa', 'liberada', true,
-          'dono', (select u.email from %I.perfis p join auth.users u on u.id = p.user_id where p.papel = 'dono' limit 1),
-          'gestores', (select count(*) from %I.perfis p where p.papel in ('dono', 'gestor')),
-          'equipe', (select coalesce(json_agg(u.email order by u.email), '[]') from %I.perfis p join auth.users u on u.id = p.user_id where p.papel = 'gestor'),
-          'usuarios', (select count(*) from %I.perfis p where p.papel not in ('dono', 'gestor')),
-          'ultimoUso', (select max(em) from %I.atividade),
-          'online', (select count(distinct user_id) from %I.atividade where em > now() - interval '5 minutes')))$q$, a.pasta, a.nome, a.url_gestao, a.nome, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta, a.pasta) into parte;
+      execute replace(replace($q$
+        select jsonb_build_array(jsonb_build_object('app', $1, 'appNome', $2, 'url', $3, 'id', null, 'nome', $2, 'situacao', 'ativa', 'liberada', true,
+          'dono', (select u.email from SC.perfis p join auth.users u on u.id = p.user_id where p.papel = 'dono' limit 1),
+          'gestores', (select count(*) from SC.perfis p where p.papel in ('dono', 'gestor')),
+          'usuarios', (select count(*) from SC.perfis p where p.papel not in ('dono', 'gestor')),
+          'ultimoUso', (select max(em) from SC.atividade),
+          'online', (select count(distinct user_id) from SC.atividade where em > now() - interval '5 minutes'),
+          'pessoas', (select coalesce(jsonb_agg(x order by ORDEM, x->>'nome'), '[]'::jsonb) from (
+              select jsonb_build_object('nome', u.email, 'papel', p.papel, 'online', coalesce(v.visto > now() - interval '5 minutes', false), 'visto', v.visto) x, p.papel
+              from SC.perfis p left join auth.users u on u.id = p.user_id
+              left join lateral (select max(t.em) visto from SC.atividade t where t.user_id = p.user_id) v on true) z)))$q$,
+        'SC', quote_ident(a.pasta)), 'ORDEM', replace(ordem, 'papel', 'z.papel')) into parte using a.pasta, a.nome, a.url_gestao;
     end if;
     out := out || coalesce(parte, '[]'::jsonb);
   end loop;

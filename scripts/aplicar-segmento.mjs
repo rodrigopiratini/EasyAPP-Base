@@ -3,6 +3,7 @@
 // Uso: node scripts/aplicar-segmento.mjs        (rode de novo sempre que mudar nome, cores ou ícone)
 // Os ícones são desenhados com o Chromium do Playwright; sem ele, o resto é gerado e os ícones ficam como estão.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { SEGMENTO as S } from '../src/js/segmento.js';
 
 const raiz = new URL('../', import.meta.url);
@@ -18,6 +19,10 @@ C.marcaFundo = cor('marca-fundo', C.escura); C.marcaA = cor('marca-a', '#FFFFFF'
 // Gestão: quadrado escuro da marca; app de campo: quadrado na cor primária (as mesmas barras)
 const apps = { gestao: { ...S.gestao, fundo: C.marcaFundo, a: C.marcaA, b: C.marcaB }, ...(S.usuario ? { usuario: { ...S.usuario, fundo: C.primaria, a: '#FFFFFF', b: C.marcaB } } : {}) };
 
+// "versão" dos ícones: muda quando mudam cores, nome ou ícone. Vai no endereço (…png?v=…) para o celular
+// perceber que o ícone mudou e trocar o do app instalado (com o mesmo endereço ele guarda o antigo).
+const V = createHash('sha1').update(JSON.stringify([C, S.nome, S.icone, S.logo, S.gestao?.nome, S.usuario?.nome])).digest('hex').slice(0, 8);
+const comVersao = (html) => html.replace(/(assets\/icons\/[\w-]+\.png)(\?v=\w+)?/g, `$1?v=${V}`);
 console.log(`Aplicando "${S.nome}"`);
 for (const [app, a] of Object.entries(apps)) {
   let html = ler(`${app}/index.html`);
@@ -26,19 +31,20 @@ for (const [app, a] of Object.entries(apps)) {
     .replace(/<meta name="apple-mobile-web-app-title" content="[^"]*">/, `<meta name="apple-mobile-web-app-title" content="${esc(a.curto)}">`)
     .replace(/<meta name="description" content="[^"]*">\n?/, '')
     .replace('<link rel="manifest"', `<meta name="description" content="${esc(a.descricao)}">\n<link rel="manifest"`);
+  html = comVersao(html);
   gravar(`${app}/index.html`, html);
   gravar(`${app}/manifest.webmanifest`, JSON.stringify({
     id: `${S.id}-${app}`, name: a.nome, short_name: a.curto, description: a.descricao, lang: 'pt-BR', start_url: './', scope: './',
     display: 'standalone', orientation: 'any', background_color: C.escura, theme_color: C.escura,
     icons: [
-      { src: `../assets/icons/${app}-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: `../assets/icons/${app}-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: `../assets/icons/${app}-maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: `../assets/icons/${app}-192.png?v=${V}`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: `../assets/icons/${app}-512.png?v=${V}`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: `../assets/icons/${app}-maskable-512.png?v=${V}`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   }, null, 2) + '\n');
 }
 
-gravar('index.html', `<!doctype html>
+gravar('index.html', comVersao(`<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -79,7 +85,7 @@ gravar('index.html', `<!doctype html>
 <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>
-`);
+`));
 
 // ---------- Ícones ----------
 // as três barras crescentes (iguais às do EasyAPP Financial), centradas; no maskable, menores (área segura)
