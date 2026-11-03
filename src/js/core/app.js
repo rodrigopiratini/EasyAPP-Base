@@ -29,7 +29,7 @@ export function criarApp(def) {
 
   // ---------- Navegação ----------
   const extrasNav = () => gestao ? [
-    ['#/atividade', 'users', 'Atividade', () => store.ehDono() && store.modo === 'nuvem'],
+    ['#/atividade', 'users', 'Atividade', () => SEGMENTO.atividade !== false && store.ehDono() && store.modo === 'nuvem'], // segmento.js: atividade: false tira do menu
     ['#/plataforma', 'building', 'Plataforma', () => store.ehAdmin()],
     ['#/config', 'gear', 'Configurações', () => true],
   ] : [['#/conta', 'user', 'Minha conta', () => true]];
