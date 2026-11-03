@@ -6,16 +6,21 @@
 //   node scripts/migrar-projeto.mjs --de <ref-origem> --para <ref-destino> [--schema public] [--executar]
 //   Sem --executar, só mostra o que seria copiado (ensaio).
 //   Antes, rode o instalar.sql do app no destino (cria as tabelas vazias).
+//   Em dois tempos (quando a origem precisa ser pausada antes de criar o destino):
+//     node scripts/migrar-projeto.mjs --de <ref> --para-arquivo foto.json            (fotografa a origem)
+//     node scripts/migrar-projeto.mjs --de-arquivo foto.json --para <ref> --executar  (carrega no destino)
+//   O arquivo contém senhas criptografadas e PINs: guarde fora do repositório e apague depois.
 // Acesso: Management API do Supabase (api.supabase.com/v1/projects/<ref>/database/query) com o token em
 // SUPABASE_ACCESS_TOKEN (Dashboard › Account › Access Tokens). Nunca grave o token em arquivo do repositório.
 // Teste local: --local-de "<dsn>" --local-para "<dsn>" usa o psql no lugar da API.
 import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const arg = (k, padrao) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : padrao; };
 const tem = (k) => process.argv.includes('--' + k);
 const DE = arg('de'), PARA = arg('para'), SCHEMA = arg('schema', 'public'), EXECUTAR = tem('executar');
-const LOCAL_DE = arg('local-de'), LOCAL_PARA = arg('local-para');
-if (!(DE || LOCAL_DE) || !(PARA || LOCAL_PARA)) { console.error('Informe --de e --para (ou --local-de e --local-para)'); process.exit(1); }
+const LOCAL_DE = arg('local-de'), LOCAL_PARA = arg('local-para'), PARA_ARQ = arg('para-arquivo'), DE_ARQ = arg('de-arquivo');
+if (!(DE || LOCAL_DE || DE_ARQ) || !(PARA || LOCAL_PARA || PARA_ARQ)) { console.error('Informe a origem (--de, --local-de ou --de-arquivo) e o destino (--para, --local-para ou --para-arquivo)'); process.exit(1); }
 if (!/^[a-z_][a-z0-9_]*$/.test(SCHEMA)) throw new Error('schema inválido');
 
 async function sql(alvo, local, query) {
@@ -61,7 +66,8 @@ async function copiarTabela(schema, tabela, filtro = 'true') {
   const destino = await lerPara(`select 1 from information_schema.tables where table_schema = ${lit(schema)} and table_name = ${lit(tabela)}`);
   if (!destino.length) { console.log(`  · ${schema}.${tabela}: não existe no destino (pulada)`); return 0; }
   const { gravaveis, identity } = await colunas(schema, tabela);
-  const linhas = await lerDe(`select ${gravaveis.map(id).join(', ')} from ${id(schema)}.${id(tabela)} where ${filtro}`);
+  const linhas = FOTO ? (FOTO.tabelas[`${schema}.${tabela}`] || []).map((r) => Object.fromEntries(gravaveis.filter((c) => c in r).map((c) => [c, r[c]])))
+    : await lerDe(`select ${gravaveis.map(id).join(', ')} from ${id(schema)}.${id(tabela)} where ${filtro}`);
   console.log(`  · ${schema}.${tabela}: ${linhas.length} linha(s)`);
   if (!EXECUTAR || !linhas.length) return linhas.length;
   const cols = gravaveis.map(id).join(', ');
@@ -73,7 +79,27 @@ async function copiarTabela(schema, tabela, filtro = 'true') {
   return linhas.length;
 }
 
-console.log(`${EXECUTAR ? 'MIGRANDO' : 'ENSAIO (nada é gravado; use --executar)'}: ${DE || 'local'} → ${PARA || 'local'} · pasta ${SCHEMA}`);
+// ---------- Modo fotografia: grava a origem num arquivo e termina ----------
+if (PARA_ARQ) {
+  const foto = { schema: SCHEMA, origem: DE || 'local', em: new Date().toISOString(), tabelas: {} };
+  const tudo = async (schema, tabela, filtro = 'true') => {
+    const cs = (await lerDe(`select column_name c from information_schema.columns where table_schema = ${lit(schema)} and table_name = ${lit(tabela)} and is_generated = 'NEVER' order by ordinal_position`)).map((x) => x.c);
+    foto.tabelas[`${schema}.${tabela}`] = await lerDe(`select ${cs.map(id).join(', ')} from ${id(schema)}.${id(tabela)} where ${filtro}`);
+    console.log(`  · ${schema}.${tabela}: ${foto.tabelas[`${schema}.${tabela}`].length} linha(s)`);
+  };
+  const fu = `not coalesce(is_anonymous, false) and id in (select user_id from ${id(SCHEMA)}.perfis)`;
+  console.log(`FOTOGRAFANDO ${DE || 'local'} · pasta ${SCHEMA} → ${PARA_ARQ}`);
+  await tudo('auth', 'users', fu);
+  await tudo('auth', 'identities', `user_id in (select id from auth.users where ${fu})`);
+  foto.ordem = await ordemTabelas(SCHEMA);
+  for (const t of foto.ordem) await tudo(SCHEMA, t, t === 'perfis' ? 'user_id in (select id from auth.users where not coalesce(is_anonymous, false))' : t === 'tentativas_login' ? 'false' : 'true');
+  writeFileSync(PARA_ARQ, JSON.stringify(foto));
+  console.log('Fotografia salva.'); process.exit(0);
+}
+const FOTO = DE_ARQ ? JSON.parse(readFileSync(DE_ARQ, 'utf8')) : null;
+if (FOTO && FOTO.schema !== SCHEMA) { console.error(`A fotografia é da pasta ${FOTO.schema}; use --schema ${FOTO.schema}`); process.exit(1); }
+
+console.log(`${EXECUTAR ? 'MIGRANDO' : 'ENSAIO (nada é gravado; use --executar)'}: ${DE_ARQ || DE || 'local'} → ${PARA || 'local'} · pasta ${SCHEMA}`);
 // 0. confere o destino antes de qualquer gravação
 { const n = await lerPara(`select count(*)::int n from information_schema.tables where table_schema = ${lit(SCHEMA)} and table_name = 'perfis'`); if (!n[0]?.n) { console.error('Rode antes o instalar.sql do app no destino.'); process.exit(1); } }
 // 1. logins de e-mail (as senhas vão junto, criptografadas como estão)
@@ -82,7 +108,7 @@ console.log('Logins:');
 await copiarTabela('auth', 'users', filtroUsuarios);
 await copiarTabela('auth', 'identities', `user_id in (select id from auth.users where ${filtroUsuarios})`);
 // 2. tabelas do app, sem disparar os gatilhos (o registro de atividades já vem copiado)
-const tabelas = await ordemTabelas(SCHEMA);
+const tabelas = FOTO ? FOTO.ordem : await ordemTabelas(SCHEMA);
 // o destino precisa estar recém-instalado (sem ninguém usando): o que o instalar.sql gravou é substituído pelo da origem
 const emUso = await lerPara(`select count(*)::int n from ${id(SCHEMA)}.perfis`).catch(() => [{ n: 0 }]);
 if (emUso[0]?.n > 0) { console.error(`O destino já tem ${emUso[0].n} perfil(is) em ${SCHEMA}.perfis: migração cancelada para não misturar dados.`); process.exit(1); }
