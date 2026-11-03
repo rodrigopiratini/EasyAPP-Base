@@ -9,6 +9,8 @@
 //   Em dois tempos (quando a origem precisa ser pausada antes de criar o destino):
 //     node scripts/migrar-projeto.mjs --de <ref> --para-arquivo foto.json            (fotografa a origem)
 //     node scripts/migrar-projeto.mjs --de-arquivo foto.json --para <ref> --executar  (carrega no destino)
+//   Sem acesso ao destino pela API: gere um .sql para colar no SQL Editor (depois do instalar.sql do app):
+//     node scripts/migrar-projeto.mjs --de-arquivo foto.json --para-sql carga.sql
 //   O arquivo contém senhas criptografadas e PINs: guarde fora do repositório e apague depois.
 // Acesso: Management API do Supabase (api.supabase.com/v1/projects/<ref>/database/query) com o token em
 // SUPABASE_ACCESS_TOKEN (Dashboard › Account › Access Tokens). Nunca grave o token em arquivo do repositório.
@@ -19,8 +21,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const arg = (k, padrao) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : padrao; };
 const tem = (k) => process.argv.includes('--' + k);
 const DE = arg('de'), PARA = arg('para'), SCHEMA = arg('schema', 'public'), EXECUTAR = tem('executar');
-const LOCAL_DE = arg('local-de'), LOCAL_PARA = arg('local-para'), PARA_ARQ = arg('para-arquivo'), DE_ARQ = arg('de-arquivo');
-if (!(DE || LOCAL_DE || DE_ARQ) || !(PARA || LOCAL_PARA || PARA_ARQ)) { console.error('Informe a origem (--de, --local-de ou --de-arquivo) e o destino (--para, --local-para ou --para-arquivo)'); process.exit(1); }
+const LOCAL_DE = arg('local-de'), LOCAL_PARA = arg('local-para'), PARA_ARQ = arg('para-arquivo'), DE_ARQ = arg('de-arquivo'), PARA_SQL = arg('para-sql');
+if (!(DE || LOCAL_DE || DE_ARQ) || !(PARA || LOCAL_PARA || PARA_ARQ || PARA_SQL)) { console.error('Informe a origem (--de, --local-de ou --de-arquivo) e o destino (--para, --local-para ou --para-arquivo)'); process.exit(1); }
 if (!/^[a-z_][a-z0-9_]*$/.test(SCHEMA)) throw new Error('schema inválido');
 
 async function sql(alvo, local, query) {
@@ -98,6 +100,36 @@ if (PARA_ARQ) {
 }
 const FOTO = DE_ARQ ? JSON.parse(readFileSync(DE_ARQ, 'utf8')) : null;
 if (FOTO && FOTO.schema !== SCHEMA) { console.error(`A fotografia é da pasta ${FOTO.schema}; use --schema ${FOTO.schema}`); process.exit(1); }
+
+// ---------- Modo SQL: transforma a fotografia num script para colar no SQL Editor ----------
+if (PARA_SQL) {
+  if (!FOTO) { console.error('--para-sql precisa de --de-arquivo'); process.exit(1); }
+  const S = id(FOTO.schema);
+  const ins = (chave, linhas) => {
+    if (!linhas?.length) return '';
+    const [sc, tb] = chave.split('.');
+    const cols = Object.keys(linhas[0]).map(id).join(', ');
+    return `insert into ${id(sc)}.${id(tb)} (${cols}) overriding system value\n  select ${cols} from jsonb_populate_recordset(null::${id(sc)}.${id(tb)}, ${lit(JSON.stringify(linhas))}::jsonb) on conflict do nothing;\n`;
+  };
+  const partes = [
+    `-- Carga dos dados de ${FOTO.origem} (fotografia de ${FOTO.em}) na pasta ${FOTO.schema}.`,
+    '-- Rode DEPOIS do instalar.sql do app, num projeto onde ninguém usa o app ainda. Contém senhas criptografadas: apague o arquivo depois.',
+    'begin;',
+    `do $$ begin if exists (select 1 from ${S}.perfis) then raise exception 'O destino já tem perfis: carga cancelada para não misturar dados'; end if; end $$;`,
+    ins('auth.users', FOTO.tabelas['auth.users']), ins('auth.identities', FOTO.tabelas['auth.identities']),
+    ...FOTO.ordem.map((t) => `alter table ${S}.${id(t)} disable trigger user;`),
+    ...[...FOTO.ordem].reverse().map((t) => `delete from ${S}.${id(t)};`),
+    ...FOTO.ordem.map((t) => ins(`${FOTO.schema}.${t}`, FOTO.tabelas[`${FOTO.schema}.${t}`])),
+    ...FOTO.ordem.map((t) => `alter table ${S}.${id(t)} enable trigger user;`),
+    `do $$ declare r record; begin for r in select c.relname t, a.attname col, pg_get_serial_sequence(format('%I.%I', n.nspname, c.relname), a.attname) s from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = ${lit(FOTO.schema)} and a.attnum > 0 and (a.attidentity <> '' or pg_get_serial_sequence(format('%I.%I', n.nspname, c.relname), a.attname) is not null) loop
+       if r.s is not null then execute format('select setval(%L, greatest(1, (select coalesce(max(%I), 0) from ${FOTO.schema}.%I)))', r.s, r.col, r.t); end if; end loop; end $$;`,
+    'commit;',
+    `select ${FOTO.ordem.filter((t) => FOTO.tabelas[`${FOTO.schema}.${t}`]?.length).map((t) => `(select count(*) from ${S}.${id(t)}) ${id(t)}`).join(', ')}, (select count(*) from auth.users where id in (select user_id from ${S}.perfis)) logins;`,
+  ];
+  writeFileSync(PARA_SQL, partes.filter(Boolean).join('\n'));
+  console.log('Script de carga gerado:', PARA_SQL); process.exit(0);
+}
 
 console.log(`${EXECUTAR ? 'MIGRANDO' : 'ENSAIO (nada é gravado; use --executar)'}: ${DE_ARQ || DE || 'local'} → ${PARA || 'local'} · pasta ${SCHEMA}`);
 // 0. confere o destino antes de qualquer gravação
