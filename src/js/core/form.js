@@ -6,7 +6,8 @@
 //     { k: 'valor', label: 'Valor', tipo: 'money' },
 //     { k: 'tipo', label: 'Tipo', tipo: 'select', opcoes: [['a', 'Opção A'], ['b', 'Opção B']] },
 //   ];
-//   editar({ titulo: 'Cliente', colecao: 'clientes', campos: CAMPOS, doc });   // novo ou edição
+//   editar({ titulo: 'Cliente', colecao: 'clientes', campos: CAMPOS, doc });   // novo (doc null) ou edição
+//   editar({ ..., inicial: { clienteId } })                                       // novo já preenchido
 //
 // Tipos: text (padrão) | tel | email | number | money | date | select | textarea | checkbox
 // Opções extras de cada campo: ph (placeholder), dica, col: 2 (ocupa a linha toda), padrao, min, max, passo,
@@ -60,11 +61,11 @@ export function lerCampos(id, campos) {
 }
 
 // Cadastro completo (novo ou edição) de um documento de uma coleção
-export function editar({ titulo, colecao, campos, doc = null, prefixo = colecao.slice(0, 2), antesDeSalvar, onSalvo, apagar = true, extra = '', largo = true }) {
+export function editar({ titulo, colecao, campos, doc = null, inicial = null, prefixo = colecao.slice(0, 2), antesDeSalvar, onSalvo, apagar = true, extra = '', largo = true }) {
   const novo = !doc;
   modal({
     title: (novo ? 'Novo: ' : '') + titulo, wide: largo,
-    body: formHTML('fed', campos, doc) + extra,
+    body: formHTML('fed', campos, doc || inicial) + extra,
     foot: `${!novo && apagar ? `<button class="btn ghost" data-act="apagar" style="margin-right:auto;color:var(--crit)">${icon('trash')}</button>` : ''}<button class="btn ghost" data-act="close">Cancelar</button><button class="btn" data-act="salvar">Salvar</button>`,
     handlers: {
       salvar: () => {
