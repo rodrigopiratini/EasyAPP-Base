@@ -78,7 +78,9 @@ export function criarApp(def) {
         <div class="foot">${syncBadge()}<br><a href="#" data-act="logout" style="color:inherit">Sair</a></div>
       </aside>
       <div>
-        <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button>` : `<span style="display:grid;place-items:center">${SEGMENTO.logo ? icon(SEGMENTO.icone || 'home') : barras}</span>`}<div class="t ellipsis">${title}</div>${def.topoDireita?.(s) || ''}</header>
+        <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button><div class="t ellipsis">${title}</div>`
+          : SEGMENTO.logo ? `<span style="display:grid;place-items:center">${icon(SEGMENTO.icone || 'home')}</span><div class="t ellipsis">${title}</div>`
+          : `<div class="ea-marca t">${barras}${nomeMarca}</div>`}${def.topoDireita?.(s) || ''}</header>
         <main class="main">${avisoSuporte()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
       </div>
       <nav class="tabbar">${tabs().map(([h, ic, n]) => `<a href="${h}" class="${isOn(h) ? 'on' : ''}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}</nav>

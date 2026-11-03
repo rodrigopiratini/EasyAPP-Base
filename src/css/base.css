@@ -358,3 +358,5 @@ a.li, .li.click { color: inherit; cursor: pointer; }
 .side .brand .ea-marca { padding: 2px 0; }
 .topbar .ea-barras { height: 18px; } .topbar .ea-barras i { width: 5px; }
 @media (prefers-reduced-motion: reduce) { .ea-barras i, .ea-tile, .ea-nome { animation: none !important; } }
+.topbar .ea-marca { gap: 8px; min-width: 0; }
+.topbar .ea-marca .ea-nome { font-size: 18px; overflow: hidden; text-overflow: ellipsis; }
