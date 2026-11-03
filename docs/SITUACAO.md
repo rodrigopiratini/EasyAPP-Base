@@ -3,7 +3,7 @@
 ## Supabase — organização EasyAPP
 | Projeto | O que tem |
 |---|---|
-| EasyApp Financial (`nhngqhgxmrnqbcnklrwc`, ainda na organização easyapp-store) | Só o EasyApp Financial |
+| EasyApp Financial (`nhngqhgxmrnqbcnklrwc`, nome easyapp-store; já na organização EasyAPP) | Só o EasyApp Financial |
 | **EasyAPP-Fábrica** (`sizbmkvzcqiukprdlxxr`, São Paulo) | Pastas `milterras`, `frota`, `golden` (e as próximas) |
 | App_Mil_Terras (pausado, EUA) · Golden-CRM (pausado) | Antigos: apagar |
 
@@ -21,7 +21,7 @@
 - Administrador das assinaturas: `insert into <pasta>.plataforma_admins values ('<email>');` em cada pasta.
 
 ## Pendências
-- Transferir o projeto do Financial para a organização EasyAPP e apagar easyapp-store e Golden.
+- Apagar as organizações vazias easyapp-store e Golden (o projeto do Financial já foi transferido para a EasyAPP em 03/11).
 - Apagar Vercel (golden-crm) e os projetos pausados.
 
 ## Painel de suporte (ligado em 03/11/2026)
@@ -32,6 +32,12 @@ segredos `FABRICA_SEGREDO` (nos dois projetos, mesma senha) e `FABRICA_URL` (no 
 Financial passou a usar `--yes` (a CLI nova do Supabase pede confirmação; sem isso nada era publicado).
 
 ## Próximos (pedidos do dono em 03/11/2026)
-- Trazer o Ducairo do Financial (módulo de frota: tabelas `modulos`/`registros`) para o EasyApp Frota, com o login dele.
+- Trazer o Ducairo do Financial para o EasyApp Frota, com o login dele (mesmo e-mail e senha). O que se sabe: o assistente do
+  Financial criou para ele um módulo próprio (tabelas `modulos`, `modulo_versoes` com o html e as `colecoes`, e `registros`
+  com os dados), então o formato só se vê no banco do Financial. Passos: ler o módulo e os registros dele, mapear para as coleções
+  do Frota (veiculos, motoristas, clientes, viagens, abastecimentos, despesas, manutencoes; criar o que faltar no Frota), criar a
+  empresa dele na pasta `frota` (copiar o login com `scripts/migrar-projeto.mjs` ou SQL equivalente), conferir pelo painel
+  (Apps da fábrica › 👁 ver) e só então avisar o Ducairo. Não apagar nada no Financial.
+  Bloqueio em 03/11: a chave do ambiente só enxerga o projeto da Fábrica; precisa de um token com acesso ao easyapp-store.
 - Assistente com créditos em todos os apps (reaproveitar o assistente do Financial: módulos, aparência, carteira de créditos, Mercado Pago).
-- Para trabalhar sem passos manuais: no ambiente do Claude, chave completa do Supabase (Network secrets, api.supabase.com) e `*.supabase.co` em Allowed domains.
+- Para trabalhar sem passos manuais: no ambiente do Claude, token do Supabase com acesso à organização EasyAPP inteira (Network secrets, api.supabase.com). Hoje ele só vê a Fábrica.
