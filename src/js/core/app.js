@@ -41,7 +41,12 @@ export function criarApp(def) {
     const t = { local: 'Demonstração (dados neste navegador)', online: 'Sincronizado', enviando: `Enviando ${store.pendentes()}…`, offline: `Sem internet · ${store.pendentes()} pendente(s)` }[st] || st;
     return `<span class="sync" style="${st === 'offline' ? 'color:var(--warn)' : st === 'local' ? 'color:var(--destaque)' : ''}">${t}</span>`;
   }
-  const marca = (neg = true) => SEGMENTO.logo ? `<img src="${asset(SEGMENTO.logo)}" alt="${esc(SEGMENTO.nome)}">` : `<div class="nome">${esc(SEGMENTO.nome)}</div>`;
+  // Marca da família EasyAPP (ou o logo próprio do segmento, se houver)
+  const produto = SEGMENTO.produto || SEGMENTO.nome.replace(/^easy\s*app\s*/i, '') || SEGMENTO.nome;
+  const barras = '<span class="ea-barras" aria-hidden="true"><i></i><i></i><i></i></span>';
+  const nomeMarca = `<span class="ea-nome">EasyAPP<b>${esc(produto)}</b></span>`;
+  const tile = `<span class="ea-tile" aria-hidden="true">${barras}</span>`;
+  const marca = () => SEGMENTO.logo ? `<img src="${asset(SEGMENTO.logo)}" alt="${esc(SEGMENTO.nome)}">` : `<div class="ea-marca">${barras}${nomeMarca}</div>`;
 
   function avisoSuporte() {
     const sp = store.suporte();
@@ -73,7 +78,7 @@ export function criarApp(def) {
         <div class="foot">${syncBadge()}<br><a href="#" data-act="logout" style="color:inherit">Sair</a></div>
       </aside>
       <div>
-        <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button>` : `<span style="display:grid;place-items:center">${icon(SEGMENTO.icone || 'home')}</span>`}<div class="t ellipsis">${title}</div>${def.topoDireita?.(s) || ''}</header>
+        <header class="topbar">${back ? `<button data-act="back" aria-label="Voltar">${icon('arrowL')}</button>` : `<span style="display:grid;place-items:center">${SEGMENTO.logo ? icon(SEGMENTO.icone || 'home') : barras}</span>`}<div class="t ellipsis">${title}</div>${def.topoDireita?.(s) || ''}</header>
         <main class="main">${avisoSuporte()}${avisoAssinatura()}${store.modo === 'local' ? `<div class="demo-banner">${icon('info')}<span class="grow">Demonstração com dados fictícios, salvos só neste navegador.</span></div>` : ''}${bannerInstalar()}${content}</main>
       </div>
       <nav class="tabbar">${tabs().map(([h, ic, n]) => `<a href="${h}" class="${isOn(h) ? 'on' : ''}">${icon(ic)}<span>${n}</span>${b(h)}</a>`).join('')}</nav>
@@ -86,7 +91,7 @@ export function criarApp(def) {
   // ---------- Login ----------
   let telaLogin = 'entrar';
   const caixa = (sub, corpo, acao) => `<div class="login"><form class="box col" data-onsubmit="${acao}" style="gap:14px">
-    ${SEGMENTO.logo ? `<img class="logo" src="${asset(SEGMENTO.logo)}" alt="" style="background:var(--primaria-escura);padding:12px;border-radius:14px">` : `<div class="marca">${esc(SEGMENTO.nome)}<small>${esc(sub)}</small></div>`}${corpo}</form></div>`;
+    ${SEGMENTO.logo ? `<img class="logo" src="${asset(SEGMENTO.logo)}" alt="" style="background:var(--primaria-escura);padding:12px;border-radius:14px">` : `<div class="ea-cab">${tile}${nomeMarca}<small>${esc(sub)}</small></div>`}${corpo}</form></div>`;
 
   function vLoginGestao() {
     if (store.modo === 'local') return caixa(`${SEGMENTO.gestao.curto} · demonstração`, `
@@ -391,7 +396,7 @@ export function criarApp(def) {
 
   function iniciar() {
     registerSW();
-    root.innerHTML = `<div class="login"><div class="marca" style="color:#fff">${esc(SEGMENTO.nome)}</div></div>`;
+    root.innerHTML = SEGMENTO.logo ? `<div class="login"><div class="marca" style="color:#fff">${esc(SEGMENTO.nome)}</div></div>` : `<div class="ea-abertura">${tile}${nomeMarca}</div>`;
     const erroLink = new URLSearchParams(location.hash.replace(/^#\/?/, '')).get('error_code');
     if (erroLink) history.replaceState(null, '', location.pathname + location.search);
     store.init(tipo).then(async (ok) => {

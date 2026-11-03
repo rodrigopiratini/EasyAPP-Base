@@ -326,3 +326,35 @@ a.li, .li.click { color: inherit; cursor: pointer; }
 .acao-grande .ic svg { width: 24px; height: 24px; }
 .acao-grande .t { font-family: var(--font-t); font-size: 16px; }
 .acao-grande .s { font-size: 12.5px; color: var(--ink-3); }
+
+/* ---------- Marca da família EasyAPP: as três barras crescentes + "EasyAPP <produto>" ----------
+   Cores por segmento (segmento.css): --marca-fundo (quadrado do ícone), --marca-a (barras 1 e 2), --marca-b (barra 3). */
+:root { --marca-fundo: var(--primaria-escura); --marca-a: #FFFFFF; --marca-b: var(--destaque); }
+.ea-barras { display: inline-flex; align-items: flex-end; gap: 2px; height: 15px; flex: none; }
+.ea-barras i { display: block; width: 4px; border-radius: 1.5px; transform-origin: bottom; background: var(--marca-a); animation: eaOnda 7s ease-in-out infinite; }
+.ea-barras i:nth-child(1) { height: 40%; }
+.ea-barras i:nth-child(2) { height: 67%; animation-delay: .12s; }
+.ea-barras i:nth-child(3) { height: 100%; background: var(--marca-b); animation-delay: .24s; }
+@keyframes eaOnda { 0%, 13%, 100% { transform: scaleY(1); } 4% { transform: scaleY(.4); } 9% { transform: scaleY(1.1); } }
+.ea-marca { display: flex; align-items: center; gap: 9px; color: #fff; }
+.ea-nome { font-family: var(--font-t); font-weight: 500; font-size: 19px; letter-spacing: .2px; line-height: 1.1; white-space: nowrap; }
+.ea-nome b { font-weight: 600; color: var(--marca-b); margin-left: .28em; }
+.ea-tile { width: 76px; height: 76px; border-radius: 20px; background: var(--marca-fundo); display: grid; place-items: center; box-shadow: 0 12px 34px rgba(0, 0, 0, .28); margin: 0 auto; }
+.ea-tile .ea-barras { height: 42px; gap: 6px; }
+.ea-tile .ea-barras i { width: 12px; border-radius: 4px; animation: eaNasce .6s cubic-bezier(.34, 1.56, .64, 1) both, eaOnda 7s ease-in-out 1.4s infinite; }
+.ea-tile .ea-barras i:nth-child(1) { animation-delay: .05s, 1.4s; } .ea-tile .ea-barras i:nth-child(2) { animation-delay: .18s, 1.52s; } .ea-tile .ea-barras i:nth-child(3) { animation-delay: .31s, 1.64s; }
+@keyframes eaNasce { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes eaSurge { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.login .ea-cab { text-align: center; display: flex; flex-direction: column; gap: 12px; margin-bottom: 4px; }
+.login .ea-cab .ea-nome { color: var(--ink); font-size: 23px; animation: eaSurge .5s ease .4s both; }
+.login .ea-cab .ea-nome b { color: var(--primaria); }
+.login .ea-cab small { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+/* abertura: enquanto carrega, o ícone respira no fundo da marca */
+.ea-abertura { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: radial-gradient(120% 80% at 50% 0%, var(--primaria), var(--primaria-escura) 70%); }
+.ea-abertura .ea-tile { width: 104px; height: 104px; border-radius: 26px; animation: eaPulsa 1.8s ease-in-out .9s infinite; }
+.ea-abertura .ea-tile .ea-barras { height: 58px; gap: 8px; } .ea-abertura .ea-tile .ea-barras i { width: 16px; border-radius: 5px; }
+.ea-abertura .ea-nome { color: #fff; font-size: 22px; animation: eaSurge .5s ease .45s both; }
+@keyframes eaPulsa { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+.side .brand .ea-marca { padding: 2px 0; }
+.topbar .ea-barras { height: 18px; } .topbar .ea-barras i { width: 5px; }
+@media (prefers-reduced-motion: reduce) { .ea-barras i, .ea-tile, .ea-nome { animation: none !important; } }

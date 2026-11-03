@@ -8,4 +8,6 @@
   --surface-2: #EDF1F6;
   --line: #DFE5EC;
   --s1: #1F77B4; --s2: #F2A541; --s3: #2CA02C;
+  /* marca da família EasyAPP: quadrado do ícone, barras 1 e 2, barra 3 */
+  --marca-fundo: #12314D; --marca-a: #5DA9E9; --marca-b: #F2A541;
 }

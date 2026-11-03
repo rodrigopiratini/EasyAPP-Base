@@ -13,7 +13,10 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const css = ler('src/css/segmento.css');
 const cor = (v, padrao) => css.match(new RegExp(`--${v}:\\s*(#[0-9a-fA-F]{3,8})`))?.[1] || padrao;
 const C = { escura: cor('primaria-escura', '#12314D'), primaria: cor('primaria', '#1F4E79'), destaque: cor('destaque', '#F2A541'), fundo: cor('fundo', '#F5F7FA') };
-const apps = { gestao: { ...S.gestao, fundo: C.escura, traco: '#FFFFFF' }, ...(S.usuario ? { usuario: { ...S.usuario, fundo: C.destaque, traco: C.escura } } : {}) };
+// marca da família: as três barras (cores em segmento.css: --marca-fundo, --marca-a, --marca-b)
+C.marcaFundo = cor('marca-fundo', C.escura); C.marcaA = cor('marca-a', '#FFFFFF'); C.marcaB = cor('marca-b', C.destaque);
+// Gestão: quadrado escuro da marca; app de campo: quadrado na cor primária (as mesmas barras)
+const apps = { gestao: { ...S.gestao, fundo: C.marcaFundo, a: C.marcaA, b: C.marcaB }, ...(S.usuario ? { usuario: { ...S.usuario, fundo: C.primaria, a: '#FFFFFF', b: C.marcaB } } : {}) };
 
 console.log(`Aplicando "${S.nome}"`);
 for (const [app, a] of Object.entries(apps)) {
@@ -63,7 +66,7 @@ gravar('index.html', `<!doctype html>
 </head>
 <body>
 <div class="hub">
-  ${S.logo ? `<img src="${esc(S.logo)}" alt="${esc(S.nome)}" style="width:min(300px,70vw)">` : `<h1>${esc(S.nome)}</h1>`}
+  ${S.logo ? `<img src="${esc(S.logo)}" alt="${esc(S.nome)}" style="width:min(300px,70vw)">` : `<div style="display:flex;flex-direction:column;align-items:center;gap:14px"><img src="assets/icons/gestao-192.png" alt="" style="width:88px;height:88px;border-radius:22px;box-shadow:0 12px 34px rgba(0,0,0,.3)"><h1 style="font-weight:500">EasyAPP <span style="color:var(--destaque)">${esc(S.produto || S.nome.replace(/^easy\s*app\s*/i, ''))}</span></h1></div>`}
   <div class="tagline">${esc(S.slogan)}</div>
   <div class="cards">
     <a class="card" href="gestao/"><img src="assets/icons/gestao-192.png" alt=""><h2>${esc(S.gestao.nome)}</h2><div class="small ink2">${esc(S.gestao.descricao)}</div><span class="btn sm" style="align-self:flex-start">Abrir</span></a>
@@ -79,11 +82,13 @@ gravar('index.html', `<!doctype html>
 `);
 
 // ---------- Ícones ----------
-const ui = ler('src/js/core/ui.js');
-const caminho = (nome) => ui.match(new RegExp(`\\n\\s+${nome}: '([^']+)'`))?.[1] || '';
-const desenho = (a, tam, margem) => `<svg xmlns="http://www.w3.org/2000/svg" width="${tam}" height="${tam}" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="${margem ? 0 : 22}" fill="${a.fundo}"/>
-  <g transform="translate(${margem ? 30 : 22} ${margem ? 30 : 22}) scale(${margem ? 1.666 : 2.333})" fill="none" stroke="${a.traco}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${caminho(a.icone || S.icone || 'home')}</g></svg>`;
+// as três barras crescentes (iguais às do EasyAPP Financial), centradas; no maskable, menores (área segura)
+const desenho = (a, tam, margem) => {
+  const k = margem ? 0.72 : 1, w = 17 * k, gap = 9 * k, alturas = [26, 44, 67].map((h) => h * k), base = 50 + 33.5 * k;
+  const x0 = 50 - (3 * w + 2 * gap) / 2;
+  const barra = (i) => `<rect x="${x0 + i * (w + gap)}" y="${base - alturas[i]}" width="${w}" height="${alturas[i]}" rx="${4.5 * k}" fill="${i === 2 ? a.b : a.a}"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${tam}" height="${tam}" viewBox="0 0 100 100"><rect width="100" height="100" rx="${margem ? 0 : 22}" fill="${a.fundo}"/>${[0, 1, 2].map(barra).join('')}</svg>`;
+};
 mkdirSync(new URL('assets/icons/', raiz), { recursive: true });
 let pw;
 try { pw = await import('playwright'); } catch { try { const { createRequire } = await import('node:module'); pw = createRequire(import.meta.url)('playwright'); } catch { pw = null; } }
