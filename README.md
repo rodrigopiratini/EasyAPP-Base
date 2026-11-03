@@ -32,6 +32,6 @@ src/js/core/                     núcleo comum (não editar no segmento; vem do 
 supabase/base.sql                banco comum (empresas, documentos, regras, assinatura, atividade)
 supabase/segmento.sql            ★ regras extras do segmento (opcional)
 supabase/gerar.mjs               gera supabase/instalar.sql (o arquivo que se cola no Supabase)
-scripts/                         novo-segmento.sh · atualizar-base.sh · aplicar-segmento.mjs
+scripts/                         novo-segmento.sh · atualizar-base.sh · aplicar-segmento.mjs · migrar-projeto.mjs
 ```
 ★ = o que muda de um segmento para outro.

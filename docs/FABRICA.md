@@ -1,7 +1,8 @@
 # Fábrica de apps por segmento
 
 O `easyapp-base` é o molde. Cada segmento (frota, distribuição de vinhos, serviços em campo…) é um
-repositório criado a partir dele, com **um** banco Supabase que atende todas as empresas daquele segmento.
+repositório criado a partir dele. Todos usam o mesmo projeto Supabase (`easyapp-fabrica`), cada um na sua pasta (schema),
+e dentro da pasta atendem todas as empresas daquele segmento.
 
 ## O que já vem pronto (não reescreva)
 | Peça | Onde |
@@ -30,7 +31,7 @@ repositório criado a partir dele, com **um** banco Supabase que atende todas as
    `bash scripts/novo-segmento.sh ../easyapp-vinhos` a partir do `easyapp-base` (copia o molde).
 2. **Definição**: escreva o `segmento.js` (coleções e regras) e o `segmento.css`; rode `node scripts/aplicar-segmento.mjs` (títulos, manifests, ícones).
 3. **Telas e demonstração**: `dominio.js`, `gestao/app.js`, `usuario/app.js`, `seed.js`. Teste com `python3 -m http.server` em `?demo=1`.
-4. **Banco**: `node supabase/gerar.mjs` › crie o projeto no Supabase › cole o `instalar.sql` (passo a passo em `docs/INSTALACAO.md`).
+4. **Banco**: escolha a pasta (`schema`) no `segmento.js` › `node supabase/gerar.mjs` › cole o `instalar.sql` no easyapp-fabrica e exponha a pasta (passo a passo em `docs/INSTALACAO.md`).
 5. **No ar**: preencha `src/js/config.js`, push na `main`, ative o Pages.
 6. **Venda**: mostre a demonstração; o cliente cria a conta sozinho e entra em teste.
 

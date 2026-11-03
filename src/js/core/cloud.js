@@ -9,9 +9,11 @@ import { SEGMENTO } from '../segmento.js';
 const COLECOES = Object.keys(SEGMENTO.colecoes);
 const PAGINA = 1000;
 const LOTE = 200;
+const SCHEMA = SEGMENTO.schema || 'public'; // pasta do app no banco (vários apps no mesmo projeto)
 
 export function criarNuvem(app, hooks) {
   const sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
+    db: { schema: SCHEMA },
     auth: { storageKey: `${SEGMENTO.id}-auth-${app}`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
   const OUTBOX = `${SEGMENTO.id}-fila-${app}`;
@@ -119,7 +121,7 @@ export function criarNuvem(app, hooks) {
   function ouvir() {
     canal?.unsubscribe();
     canal = sb.channel(`${SEGMENTO.id}-${app}`);
-    canal.on('postgres_changes', { event: '*', schema: 'public', table: 'docs', filter: `empresa_id=eq.${empresa()}` }, (p) => {
+    canal.on('postgres_changes', { event: '*', schema: SCHEMA, table: 'docs', filter: `empresa_id=eq.${empresa()}` }, (p) => {
       if (!state) return;
       const id = p.new?.id || p.old?.id;
       if (fila.some((op) => op.id === id)) return; // alteração local ainda pendente

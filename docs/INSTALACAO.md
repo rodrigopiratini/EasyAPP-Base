@@ -1,7 +1,8 @@
 # Colocar um app de segmento no ar (uma vez por segmento, ~15 minutos)
 
-Um único banco atende **todas as empresas** do segmento (cada uma só enxerga o que é dela).
-Ou seja: isto é feito uma vez por segmento, não por cliente.
+Todos os apps de segmento ficam no **mesmo projeto Supabase, `easyapp-fabrica`** (organização EasyAPP, região São Paulo),
+cada um na sua **pasta** (schema), definida em `segmento.js › schema` (ex.: `frota`). Dentro da pasta, um único banco atende
+**todas as empresas** do segmento (cada uma só enxerga o que é dela). O EasyApp Financial fica no projeto dele, separado.
 
 ## 1. Publicar o site (GitHub Pages)
 1. No GitHub, abra o repositório › **Settings** › **Pages** › **Build and deployment › Source: GitHub Actions**.
@@ -10,13 +11,17 @@ Ou seja: isto é feito uma vez por segmento, não por cliente.
 3. (Opcional) Endereço próprio, ex.: `frota.easyappfinancial.com.br`: crie um registro **CNAME** no DNS apontando para
    `<usuário>.github.io`, crie o arquivo `CNAME` na raiz do repositório com o endereço e confirme em Settings › Pages › Custom domain.
 
-## 2. Criar o banco (Supabase)
-1. https://supabase.com › **New project** · nome = id do segmento · região **South America (São Paulo)** · anote a senha.
-2. **SQL Editor › New query**: cole todo o [`supabase/instalar.sql`](../supabase/instalar.sql) › **Run** (aparece "Instalação concluída").
-3. **Authentication › Sign In / Providers**: ative **Allow anonymous sign-ins** (é assim que o app do usuário entra com código + PIN).
-4. **Authentication › URL Configuration › Site URL**: o endereço da Gestão (ex.: `https://…/gestao/`).
-5. **Project Settings › API**: copie a **Project URL** e a **Publishable key** (ou "anon public") para [`src/js/config.js`](../src/js/config.js).
+## 2. Instalar no banco (projeto easyapp-fabrica)
+1. **SQL Editor › New query**: cole todo o [`supabase/instalar.sql`](../supabase/instalar.sql) › **Run** (aparece "Instalação concluída").
+   Ele cria só a pasta do app; não mexe nas pastas dos outros apps.
+2. **Project Settings › Data API › Exposed schemas**: acrescente a pasta do app (ex.: `frota`) › **Save**.
+3. **Authentication › URL Configuration › Redirect URLs**: acrescente o endereço da Gestão do app (ex.: `https://…/gestao/**`).
+4. [`src/js/config.js`](../src/js/config.js): a **Project URL** e a **Publishable key** do easyapp-fabrica (as mesmas para todos os apps).
    ⚠️ Nunca use a chave `service_role`/`secret` no app.
+5. Uma vez só no projeto: **Authentication › Sign In / Providers › Allow anonymous sign-ins** ligado (login por código + PIN).
+
+Mudar um app de projeto (ex.: trazer um app que tinha banco próprio): `node scripts/migrar-projeto.mjs --de <ref> --para <ref> [--schema …]`
+(ensaio por padrão; `--executar` grava). Copia as tabelas da pasta e os logins de e-mail com as senhas.
 
 ## 3. Você como administrador da plataforma
 Coloque seu e-mail em `plataforma.admins` no `src/js/segmento.js`, rode `node supabase/gerar.mjs` e rode o `instalar.sql` de novo

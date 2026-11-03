@@ -5,6 +5,7 @@
 // =====================================================================
 export const SEGMENTO = {
   id: 'easyapp-servicos',                 // prefixo dos dados guardados no aparelho (único por segmento)
+  schema: 'servicos',                     // pasta deste app no banco (projeto easyapp-fabrica); letras minúsculas, único por app
   nome: 'EasyApp Serviços',
   slogan: 'Ordens de serviço da equipe de campo, do escritório até o cliente.',
   icone: 'wrench',                        // ícone (src/js/core/ui.js) usado quando não há logo
