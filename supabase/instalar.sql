@@ -495,6 +495,9 @@ insert into servicos.colecoes (nome, leitura, escrita, campo_ref, protegidos, tr
 insert into servicos.colecoes (nome, leitura, escrita, campo_ref, protegidos, trava) values ('ordens', 'proprio', 'proprio', 'tecnicoId', array['valor', 'clienteId', 'tecnicoId', 'descricao', 'data']::text[], 'conferida')
   on conflict (nome) do update set leitura = excluded.leitura, escrita = excluded.escrita, campo_ref = excluded.campo_ref, protegidos = excluded.protegidos, trava = excluded.trava;
 
+-- ---------- Período de teste das empresas novas (segmento.js › diasTeste) ----------
+alter table servicos.empresas alter column teste_ate set default (current_date + 30);
+
 -- ---------- Administradores da plataforma ----------
 
 -- ---------- Regras específicas do segmento (supabase/segmento.sql) ----------
