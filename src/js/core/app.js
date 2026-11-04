@@ -561,7 +561,7 @@ export function criarApp(def) {
     if (def.naoRedesenhar?.(current.pattern, externo)) return;
     rerender();
   });
-  store.onErro((m) => toast('Não foi possível salvar: ' + m));
+  store.onErro((m) => toast('Não foi possível salvar: ' + m, { erro: true }));
   store.onRecuperacao(() => modal({ title: 'Criar nova senha', body: '<form id="fns" class="col"><label class="field"><span>Nova senha (mínimo 8 caracteres)</span><input class="input" name="senha" type="password" minlength="8" autocomplete="new-password"></label></form>',
     foot: '<button class="btn" data-act="ok">Salvar senha</button>',
     handlers: { ok: async () => { const v = new FormData(document.getElementById('fns')).get('senha'); if (String(v).length < 8) return toast('Mínimo 8 caracteres'); try { await store.novaSenha(v); closeModal(); toast('Senha alterada'); } catch (e) { toast(e.message); } } } }));
