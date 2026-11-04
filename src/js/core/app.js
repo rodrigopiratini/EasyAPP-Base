@@ -266,6 +266,7 @@ export function criarApp(def) {
     const s = S();
     const nuvem = store.modo === 'nuvem';
     const campos = def.camposEmpresa || [];
+    const ro = store.ehSomenteLeitura();
     return tela('Configurações', `${pageHead('Configurações')}
       <div class="grid g2">
         <div class="col">
@@ -278,10 +279,10 @@ export function criarApp(def) {
         <div class="col">
           ${cardAssinatura()}
           <div class="card col"><h2>Empresa</h2><form class="col" data-onsubmit="salvarEmpresa">
-            <label class="field"><span>Nome</span><input class="input" name="empresa" value="${esc(store.empresa()?.nome || s.meta.empresa || '')}" ${store.ehDono() || !nuvem ? '' : 'disabled'}></label>
-            ${campos.map(([k, label, ph = '']) => `<label class="field"><span>${label}</span><input class="input" name="${k}" value="${esc(s.meta[k] || '')}" placeholder="${esc(ph)}"></label>`).join('')}
+            <label class="field"><span>Nome</span><input class="input" name="empresa" value="${esc(store.empresa()?.nome || s.meta.empresa || '')}" ${(store.ehDono() || !nuvem) && !ro ? '' : 'disabled'}></label>
+            ${campos.map(([k, label, ph = '']) => `<label class="field"><span>${label}</span><input class="input" name="${k}" value="${esc(s.meta[k] || '')}" placeholder="${esc(ph)}" ${ro ? 'disabled' : ''}></label>`).join('')}
             ${nuvem ? '' : `<label class="field"><span>PIN da gestão (demonstração)</span><input class="input" name="pinGestao" inputmode="numeric" maxlength="4" value="${esc(s.meta.pinGestao || '0000')}"></label>`}
-            <button class="btn">Salvar</button></form></div>
+            ${ro ? '<div class="tiny muted">Somente consulta: alterações desativadas.</div>' : '<button class="btn">Salvar</button>'}</form></div>
           ${nuvem ? `<div class="card col"><h2>Pessoas na Gestão</h2><div id="ea-equipe" class="small muted">Carregando…</div>
             ${store.ehDono() ? `<button class="btn ghost" data-act="convidar">${icon('plus')} Convidar gestor (sócio, escritório)</button><div class="tiny muted">O gestor acessa toda a Gestão, mas não convida nem remove pessoas.</div>` : '<div class="tiny muted">Somente o administrador convida ou remove gestores.</div>'}</div>` : ''}
           <div class="card col"><h2>Dados</h2>
@@ -475,7 +476,7 @@ export function criarApp(def) {
     go();
   }
   const COLECOES_SEG = Object.keys(SEGMENTO.colecoes);
-  function preencherTestes() { const d = seed(); store.commit((s) => { for (const c of COLECOES_SEG) s[c] = d[c] || []; }); }
+  function preencherTestes() { const d = seed(); return store.commit((s) => { for (const c of COLECOES_SEG) s[c] = d[c] || []; }); }
 
   async function depoisDeEntrar() { if (!store.espelho) lembrar('entrada', tipo); await def.aposEntrar?.(); if (!location.hash || location.hash === '#/') location.hash = INICIO; go(); }
   const comAguarde = async (btn, fn) => { const b = btn?.querySelector?.('button.btn.lg, button.btn') || btn; if (b) b.disabled = true; try { await fn(); } catch (e) { toast(e.message); } finally { if (b) b.disabled = false; } };
@@ -510,7 +511,7 @@ export function criarApp(def) {
     abrirPlataforma: () => { location.hash = '#/plataforma'; go(); },
     trocarEntrada: (el) => { lembrar('entrada', el.dataset.v); const u = new URL(location.href); u.searchParams.delete('entrar'); u.hash = ''; location.replace(u.href); },
     empresaTestes: () => entrarTestes(),
-    recomecarTestes: () => confirmar('Apagar o que está na empresa de testes e carregar os dados de demonstração de novo?', { ok: 'Recomeçar' }).then((y) => { if (y && interna()) { preencherTestes(); toast('Dados de teste recarregados'); } }),
+    recomecarTestes: () => confirmar('Apagar o que está na empresa de testes e carregar os dados de demonstração de novo?', { ok: 'Recomeçar' }).then((y) => { if (y && interna() && preencherTestes() !== false) toast('Dados de teste recarregados'); }),
     esqueci: () => modal({ title: 'Redefinir senha', body: '<form id="fes" class="col"><label class="field"><span>E-mail</span><input class="input" name="email" type="email"></label></form>', foot: '<button class="btn" data-act="ok">Enviar link</button>',
       handlers: { ok: async () => { try { await store.redefinirSenha(new FormData(document.getElementById('fes')).get('email')); closeModal(); toast('Link enviado para o seu e-mail'); } catch (e) { toast(e.message); } } } }),
     entrarCodigo: (f) => comAguarde(f, async () => { await store.entrarCodigo(f.codigo.value, f.pin.value); lembrar('ultimo-codigo', String(f.codigo.value).trim().toUpperCase()); if (store.modo === 'nuvem' || (await store.init(tipo))) await depoisDeEntrar(); }),
@@ -520,7 +521,7 @@ export function criarApp(def) {
       try {
         if (d.empresa && d.empresa !== (store.empresa()?.nome || S().meta.empresa)) await store.renomearEmpresa(d.empresa);
         const { empresa: _, ...resto } = d;
-        store.commit((s) => Object.assign(s.meta, resto)); toast('Dados salvos');
+        if (store.commit((s) => Object.assign(s.meta, resto)) !== false) toast('Dados salvos');
       } catch (e) { toast(e.message); }
     },
     criarAcesso: async (el) => { const d = S()[U.colecao].find((x) => x.id === el.dataset.ref); try { await store.acessos.criar(d.id, d.nome); toast('Acesso criado'); pintarAcessos(); } catch (e) { toast(e.message); } },

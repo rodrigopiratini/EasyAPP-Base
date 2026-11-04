@@ -20,7 +20,7 @@ const A = criarApp({
     iniciar: (el) => A.store.commit((s) => Object.assign(s.ordens.find((o) => o.id === el.dataset.id), { status: 'em_andamento', inicio: agora() })),
     concluir: (el) => modal({ title: 'Concluir OS', body: '<form id="fcc" class="col"><label class="field"><span>O que foi feito</span><textarea class="input" name="obs" required></textarea></label></form>',
       foot: '<button class="btn ghost" data-act="close">Cancelar</button><button class="btn ok" data-act="ok">Concluir</button>',
-      handlers: { ok: () => { const obs = document.querySelector('#fcc [name=obs]').value.trim(); if (!obs) return toast('Conte o que foi feito'); A.store.commit((s) => Object.assign(s.ordens.find((o) => o.id === el.dataset.id), { status: 'concluida', fim: agora(), obs })); closeModal(); toast('OS concluída. Bom trabalho!'); } } }),
+      handlers: { ok: () => { const obs = document.querySelector('#fcc [name=obs]').value.trim(); if (!obs) return toast('Conte o que foi feito'); if (A.store.commit((s) => Object.assign(s.ordens.find((o) => o.id === el.dataset.id), { status: 'concluida', fim: agora(), obs })) === false) return; closeModal(); toast('OS concluída. Bom trabalho!'); } } }),
   },
 });
 
