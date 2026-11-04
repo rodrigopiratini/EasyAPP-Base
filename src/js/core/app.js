@@ -300,12 +300,13 @@ export function criarApp(def) {
   // ---------- Registro de atividades (somente o desenvolvedor) ----------
   const atv = { chave: null, dados: null, erro: null };
   const ACAO = { insert: 'criou', update: 'alterou', delete: 'apagou' };
-  const nomeColecao = (c) => SEGMENTO.colecoes[c]?.nome || { config: 'Configurações', acessos: 'Acessos', perfis: 'Perfis' }[c] || c;
+  const nomeColecao = (c) => SEGMENTO.colecoes[c]?.nome || { config: 'Configurações', acessos: 'Acessos', perfis: 'Perfis', empresa: 'Empresa' }[c] || c;
   const nomeCampo = (k) => SEGMENTO.campos?.[k] || k;
   function descrever(x) {
     const proprio = def.descreverAtividade?.(x, S());   // o segmento pode descrever do jeito dele (texto em HTML)
     if (proprio) return proprio;
     if (x.acao === 'acesso') return x.papel === 'suporte' ? `abriu a empresa pelo suporte${x.depois?.modo ? ` (${x.depois.modo === 'edicao' ? 'ver e corrigir' : 'só ver'})` : ''}` : 'entrou no app';
+    if (x.colecao === 'empresa' && x.depois?.nome != null) return `mudou o nome da empresa: <b>${esc(x.antes?.nome || '')}</b> → <b>${esc(x.depois.nome)}</b>`;
     const doc = S()[x.colecao]?.find((d) => d.id === x.registro) || x.depois || x.antes || {};
     const nome = doc.nome || doc.titulo || doc.descricao || doc.placa || '';
     const campos = x.acao === 'update' ? Object.keys(x.depois || {}).filter((k) => !['atualizadoEm', 'updatedAt'].includes(k)) : [];
