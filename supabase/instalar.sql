@@ -495,7 +495,8 @@ create or replace function servicos.atividade_log(p_antes timestamptz default nu
 language plpgsql stable security definer set search_path = servicos, public, extensions as $$
 declare v_emp uuid := servicos.minha_empresa();
 begin
-  if not servicos.eh_dono(v_emp) then raise exception 'Somente o administrador vê o registro de atividades'; end if;
+  -- só o desenvolvedor (na empresa de testes dele ou visitando a de um cliente); o administrador da empresa não vê
+  if not servicos.eh_admin() or v_emp is null then raise exception 'Somente o desenvolvedor vê o registro de atividades'; end if;
   return json_build_object(
     'itens', coalesce((select json_agg(x order by x.em desc, x.id desc) from (
         select id, em, user_id "userId", papel, quem, ref, acao, colecao, registro, antes, depois from servicos.atividade
