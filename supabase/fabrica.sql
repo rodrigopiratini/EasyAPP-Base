@@ -39,6 +39,8 @@ begin
           'registros', (select count(*) from SC.docs d where d.empresa_id = e.id),
           'ultimoUso', (select max(em) from SC.atividade t where t.empresa_id = e.id),
           'online', (select count(*) from SC.perfis p where p.empresa_id = e.id and p.visto_em > now() - interval '3 minutes'),
+          'iaCustoMes', (select coalesce(sum(i.custo), 0) from public.fabrica_ia i where i.pasta = $1 and i.empresa = e.id::text and i.em >= date_trunc('month', now())),
+          'iaPedidosMes', (select count(*) from public.fabrica_ia i where i.pasta = $1 and i.empresa = e.id::text and i.em >= date_trunc('month', now())),
           'pessoas', (select coalesce(jsonb_agg(x order by ORDEM, x->>'nome'), '[]'::jsonb) from (
               select jsonb_build_object('nome', coalesce(ac.nome, u.email), 'papel', p.papel, 'codigo', ac.codigo, 'ref', p.ref,
                 'online', coalesce(p.visto_em > now() - interval '3 minutes', false),
@@ -154,7 +156,6 @@ do $$ declare f text; begin
   end loop;
 end $$;
 
-select json_array_length(public.fabrica_empresas()) as "empresas encontradas";
 
 -- ---------- Push para o dono da plataforma quando alguém entra num app da fábrica ----------
 -- O painel de gestão inscreve o aparelho (Web Push). Ao registrar um acesso (atividade.acao = 'acesso', no máximo 1 a cada
@@ -271,3 +272,6 @@ do $$ declare f text; begin
     execute format('grant execute on function public.%s to service_role', f);
   end loop;
 end $$;
+
+-- conferência: quantas empresas o painel enxerga (no fim: usa as tabelas criadas acima)
+select json_array_length(public.fabrica_empresas()) as "empresas encontradas";
