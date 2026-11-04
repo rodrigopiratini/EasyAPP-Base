@@ -6,8 +6,8 @@
 <title>EasyApp Serviços</title>
 <meta name="description" content="Ordens de serviço da equipe de campo, do escritório até o cliente.">
 <meta name="theme-color" content="#12314D">
-<link rel="icon" href="assets/icons/gestao-192.png">
-<link rel="apple-touch-icon" href="assets/icons/gestao-180.png">
+<link rel="icon" href="assets/icons/app-192.png?v=4cc5924f">
+<link rel="apple-touch-icon" href="assets/icons/app-180.png?v=4cc5924f">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/css/base.css"><link rel="stylesheet" href="src/css/segmento.css">
@@ -15,7 +15,7 @@
   .hub { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 32px 16px; background: radial-gradient(120% 80% at 50% 0%, var(--primaria), var(--primaria-escura) 70%); }
   .hub h1 { color: #fff; font-size: 34px; text-align: center; }
   .hub .tagline { color: var(--destaque-claro); text-align: center; margin-top: -14px; max-width: 520px; }
-  .hub .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 300px)); gap: 16px; width: 100%; justify-content: center; }
+  .hub .cards { display: grid; grid-template-columns: minmax(0, 340px); gap: 16px; width: 100%; justify-content: center; }
   .hub a.card { display: flex; flex-direction: column; gap: 10px; color: var(--ink); transition: transform .15s; }
   .hub a.card:hover { transform: translateY(-3px); }
   .hub a.card img { width: 56px; height: 56px; border-radius: 14px; }
@@ -26,16 +26,16 @@
 </head>
 <body>
 <div class="hub">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:14px"><img src="assets/icons/gestao-192.png" alt="" style="width:88px;height:88px;border-radius:22px;box-shadow:0 12px 34px rgba(0,0,0,.3)"><h1 style="font-weight:500">EasyAPP <span style="color:var(--destaque)">Serviços</span></h1></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:14px"><img src="assets/icons/app-192.png?v=4cc5924f" alt="" style="width:88px;height:88px;border-radius:22px;box-shadow:0 12px 34px rgba(0,0,0,.3)"><h1 style="font-weight:500">EasyAPP <span style="color:var(--destaque)">Serviços</span></h1></div>
   <div class="tagline">Ordens de serviço da equipe de campo, do escritório até o cliente.</div>
   <div class="cards">
-    <a class="card" href="gestao/"><img src="assets/icons/gestao-192.png" alt=""><h2>EasyApp Serviços Gestão</h2><div class="small ink2">Para o escritório: clientes, ordens de serviço, equipe e resultados.</div><span class="btn sm" style="align-self:flex-start">Abrir</span></a>
-    <a class="card" href="usuario/"><img src="assets/icons/usuario-192.png" alt=""><h2>EasyApp Serviços Técnico</h2><div class="small ink2">Para o técnico: as ordens do dia, check-in no cliente e conclusão com observações.</div><span class="btn sm gold" style="align-self:flex-start">Abrir</span></a>
+    <a class="card" href="app/"><img src="assets/icons/app-192.png?v=4cc5924f" alt=""><h2>EasyApp Serviços</h2><div class="small ink2">Um app só: a gestão entra com e-mail e senha; os técnicos entram com código e PIN.</div><span class="btn sm" style="align-self:flex-start">Abrir o app</span></a>
   </div>
   <div class="foot">No iPhone: abra no Safari › Compartilhar › Adicionar à Tela de Início.<br><br>
     Quer conhecer antes? Demonstração com dados fictícios (fica só neste navegador):<br>
-    <a href="gestao/?demo=1">Gestão demo</a> · <a href="usuario/?demo=1">Técnico demo</a></div>
+    <a href="app/?demo=1&entrar=gestao">Gestão demo</a> · <a href="app/?demo=1&entrar=usuario">Técnico demo</a></div>
 </div>
+
 <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

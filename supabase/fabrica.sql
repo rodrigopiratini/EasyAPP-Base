@@ -15,9 +15,9 @@ create table if not exists public.fabrica_apps (
 alter table public.fabrica_apps enable row level security;
 revoke all on public.fabrica_apps from anon, authenticated;
 insert into public.fabrica_apps (pasta, nome, url_gestao, multiempresa) values
-  ('milterras', 'Mil Terras', 'https://rodrigopiratini.github.io/MilTerras/gestor/', false),
-  ('frota', 'EasyAPP Frota', 'https://rodrigopiratini.github.io/EasyAPP-Frota/gestao/', true),
-  ('golden', 'Golden CRM', 'https://rodrigopiratini.github.io/Golden/gestao/', true)
+  ('milterras', 'Mil Terras', 'https://rodrigopiratini.github.io/MilTerras/app/', true),
+  ('frota', 'EasyAPP Frota', 'https://rodrigopiratini.github.io/EasyAPP-Frota/app/', true),
+  ('golden', 'Golden CRM', 'https://rodrigopiratini.github.io/Golden/app/', true)
 on conflict (pasta) do update set nome = excluded.nome, url_gestao = excluded.url_gestao, multiempresa = excluded.multiempresa;
 
 -- Todas as empresas de todos os apps, com dono, uso, assinatura e as pessoas (uma linha por pessoa no painel)
@@ -40,16 +40,16 @@ begin
           'ultimoUso', (select max(em) from SC.atividade t where t.empresa_id = e.id),
           'online', (select count(*) from SC.perfis p where p.empresa_id = e.id and p.visto_em > now() - interval '3 minutes'),
           'pessoas', (select coalesce(jsonb_agg(x order by ORDEM, x->>'nome'), '[]'::jsonb) from (
-              select jsonb_build_object('nome', coalesce(ac.nome, u.email), 'papel', p.papel, 'codigo', ac.codigo,
+              select jsonb_build_object('nome', coalesce(ac.nome, u.email), 'papel', p.papel, 'codigo', ac.codigo, 'ref', p.ref,
                 'online', coalesce(p.visto_em > now() - interval '3 minutes', false),
                 'visto', greatest(p.visto_em, (select max(t.em) from SC.atividade t where t.user_id = p.user_id))) x, p.papel
               from SC.perfis p left join auth.users u on u.id = p.user_id left join SC.acessos ac on ac.empresa_id = p.empresa_id and ac.ref = p.ref and p.papel = 'usuario'
               where p.empresa_id = e.id
               union all
-              select jsonb_build_object('nome', ac.nome, 'papel', 'usuario', 'codigo', ac.codigo, 'online', false, 'visto', null), 'usuario'
+              select jsonb_build_object('nome', ac.nome, 'papel', 'usuario', 'codigo', ac.codigo, 'ref', ac.ref, 'online', false, 'visto', null), 'usuario'
               from SC.acessos ac where ac.empresa_id = e.id and ac.ativo and not exists (select 1 from SC.perfis p where p.empresa_id = ac.empresa_id and p.ref = ac.ref and p.papel = 'usuario')) z)
           ) order by e.criado_em), '[]'::jsonb)
-        from SC.empresas e$q$, 'SC', quote_ident(a.pasta)), 'ORDEM', replace(ordem, 'papel', 'z.papel')) into parte using a.pasta, a.nome, a.url_gestao;
+        from SC.empresas e where e.plano <> 'interno'$q$, 'SC', quote_ident(a.pasta)), 'ORDEM', replace(ordem, 'papel', 'z.papel')) into parte using a.pasta, a.nome, a.url_gestao;
     else
       execute replace(replace($q$
         select jsonb_build_array(jsonb_build_object('app', $1, 'appNome', $2, 'url', $3, 'id', null, 'nome', $2, 'situacao', 'ativa', 'liberada', true,

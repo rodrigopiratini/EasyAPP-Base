@@ -10,6 +10,8 @@ export const SEGMENTO = {
   slogan: 'Ordens de serviço da equipe de campo, do escritório até o cliente.',
   icone: 'wrench',                        // ícone (src/js/core/ui.js) usado quando não há logo
   logo: null,                             // ex.: 'assets/logo.png' (fundo escuro). Sem logo, usa o nome.
+  simbolo: null,                          // ex.: 'assets/logo/simbolo.png': ícone do app com o símbolo do cliente (senão, as três barras)
+  exclusivo: false,                       // true = app de um cliente só (marca dele): sem cadastro livre, teste nem planos
 
   // Quem cobra e dá suporte (aparece em Configurações › Assinatura)
   suporte: { nome: 'EasyApp', whatsapp: '', email: '' },
