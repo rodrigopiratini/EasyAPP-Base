@@ -10,7 +10,7 @@
 import * as store from './store.js';
 import { SEGMENTO } from '../segmento.js';
 import { esc, date, today, money0, int } from './fmt.js';
-import { icon, router, delegate, modal, closeModal, confirmar, toast, empty, waLink, download, asset, instalar, bannerInstalar, dispensarBanner, registerSW, verificarAtualizacao, versaoApp, filtrarBusca, buscaInput, iniciais, badge, kpi, moneyInput, parseMoney, stepHandler } from './ui.js';
+import { ROOT, icon, router, delegate, modal, closeModal, confirmar, toast, empty, waLink, download, asset, instalar, bannerInstalar, dispensarBanner, registerSW, verificarAtualizacao, versaoApp, filtrarBusca, buscaInput, iniciais, badge, kpi, moneyInput, parseMoney, stepHandler } from './ui.js';
 import { mountCharts, resetCharts } from './charts.js';
 import { criarAssistente } from './assistente.js';
 import { CONFIG } from '../config.js';
@@ -510,6 +510,13 @@ export function criarApp(def) {
     criarEmpresa: (el) => comAguarde(el, async () => { const nome = el.form.empresa.value.trim(); if (nome.length < 2) throw new Error('Informe o nome da empresa'); await store.criarEmpresa(nome); toast('Empresa criada. Bem-vindo!'); await depoisDeEntrar(); }),
     usarConvite: (el) => comAguarde(el, async () => { await store.entrarConvite(el.form.convite.value.trim()); toast('Convite aceito'); await depoisDeEntrar(); }),
     abrirPlataforma: () => { location.hash = '#/plataforma'; go(); },
+    abrirDeNovo: () => location.reload(),
+    // limpa só o login guardado deste app (e o cache do service worker) e recarrega: cai na tela de entrar
+    entrarDeNovo: async () => {
+      try { Object.keys(localStorage).filter((k) => k.startsWith(`${SEGMENTO.id}-auth-`)).forEach((k) => localStorage.removeItem(k)); } catch {}
+      try { for (const r of (await navigator.serviceWorker?.getRegistrations()) || []) if (r.scope === ROOT) await r.unregister(); } catch {}
+      location.reload();
+    },
     trocarEntrada: (el) => { lembrar('entrada', el.dataset.v); const u = new URL(location.href); u.searchParams.delete('entrar'); u.hash = ''; location.replace(u.href); },
     empresaTestes: () => entrarTestes(),
     recomecarTestes: () => confirmar('Apagar o que está na empresa de testes e carregar os dados de demonstração de novo?', { ok: 'Recomeçar' }).then((y) => { if (y && interna() && preencherTestes() !== false) toast('Dados de teste recarregados'); }),
@@ -565,12 +572,25 @@ export function criarApp(def) {
     root.innerHTML = SEGMENTO.logo ? `<div class="login"><div class="marca" style="color:#fff">${esc(SEGMENTO.nome)}</div></div>` : `<div class="ea-abertura">${tile}${nomeMarca}</div>`;
     const erroLink = new URLSearchParams(location.hash.replace(/^#\/?/, '')).get('error_code');
     if (erroLink) history.replaceState(null, '', location.pathname + location.search);
+    // Se a abertura travar (internet ruim, sessão velha guardada no aparelho, erro ao carregar), a pessoa não fica
+    // presa na tela do nome: aparece "Tentar de novo" e "Entrar de novo" (que limpa o login guardado deste app).
+    let aberto = false;
+    const travou = (e) => {
+      if (aberto) return; aberto = true;
+      if (e) console.warn('abertura', e);
+      root.innerHTML = `<div class="ea-abertura">${tile}${nomeMarca}<div class="col" style="align-items:center;gap:12px;max-width:320px;text-align:center;color:#fff">
+        <div class="small" style="opacity:.85">${e ? 'Não deu para abrir o app agora.' : 'Está demorando para abrir.'} Confira a internet e tente de novo.</div>
+        <button class="btn" data-act="abrirDeNovo">Tentar de novo</button>
+        <button class="btn ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-act="entrarDeNovo">Entrar de novo</button></div></div>`;
+    };
+    const vigia = setTimeout(() => travou(null), 15000);
     store.init(tipo).then(async (ok) => {
       if (ok) await def.aposEntrar?.();
+      clearTimeout(vigia); aberto = true;   // abriu (mesmo depois do aviso): segue normal
       if (!location.hash || location.hash === '#/') location.hash = INICIO;
       go();
       if (erroLink) modal({ title: 'Link inválido ou expirado', body: '<p class="small">O link do e-mail já foi usado ou expirou. Tente entrar com seu e-mail e senha; se pedir confirmação, use "Criar conta" de novo para receber outro link.</p>' });
-    });
+    }).catch((e) => { clearTimeout(vigia); travou(e); });
   }
 
   return { S, tela, pageHead, busca, lerForm, rerender, iniciar, linkVer, linkUsuario, get current() { return current; }, store, U, ia };
