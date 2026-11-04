@@ -9,7 +9,7 @@
 //
 // Push (Web Push) para o dono da plataforma: { op: 'push_chave' | 'push_inscrever' | 'push_remover' | 'push_testar' } (pelo painel)
 // e { op: 'avisar_acesso' } (chamada pelo banco, com o x-aviso-segredo de fabrica_config). Chaves VAPID em fabrica_config.
-// Ações (POST, JSON): { op: 'listar' } · { op: 'pessoas', pasta, empresa, dias } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
+// Ações (POST, JSON): { op: 'listar' } · { op: 'pessoas', pasta, empresa, dias } · { op: 'entrar_como', pasta, empresa, ref?, modo, quem } · { op: 'assinatura', pasta, empresa, situacao, plano, testeAte, pagoAte, valor, obs }
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
@@ -85,6 +85,33 @@ Deno.serve(async (req) => {
   if (b.op === 'pessoas') {
     const { data, error } = await adm.rpc('fabrica_pessoas', { p_pasta: String(b.pasta || ''), p_empresa: b.empresa || null, p_dias: Math.min(365, Math.max(1, Number(b.dias) || 60)) });
     return error ? json({ erro: error.message }) : json({ ok: true, ...data });
+  }
+
+  // "entrar como" do painel: abre o app já na empresa (visita de suporte de 2 h, no registro dela), com a conta de
+  // desenvolvedor de quem está no painel (quem), sem pedir login. ref = usuário: o app dele, como ele vê (só ver).
+  if (b.op === 'entrar_como') {
+    const pasta = String(b.pasta || ''), quem = String(b.quem || '').toLowerCase(), ref = b.ref ? String(b.ref) : '';
+    const modo = !ref && b.modo === 'edicao' ? 'edicao' : 'leitura';
+    if (!/^[a-z0-9_]+$/.test(pasta) || !quem || !b.empresa) return json({ erro: 'pedido incompleto' });
+    const { data: app } = await adm.from('fabrica_apps').select('url_gestao,nome').eq('pasta', pasta).maybeSingle();
+    if (!app?.url_gestao) return json({ erro: 'app não cadastrado' });
+    // link de acesso gerado pelo próprio Supabase (não envia e-mail, não mexe na senha), trocado aqui por uma sessão
+    const { data: lk, error: eL } = await adm.auth.admin.generateLink({ type: 'magiclink', email: quem });
+    const hash = (lk as any)?.properties?.hashed_token, uid = (lk as any)?.user?.id;
+    if (eL || !hash || !uid) return json({ erro: 'crie antes a sua conta de desenvolvedor neste app (entre uma vez com o seu e-mail)' });
+    const { error: eV } = await adm.schema(pasta).rpc('suporte_abrir_painel', { p_user: uid, p_empresa: b.empresa, p_modo: modo, p_quem: quem });
+    if (eV) return json({ erro: eV.message });
+    const rv = await fetch(URL_SB + '/auth/v1/verify', { method: 'POST',
+      headers: { apikey: Deno.env.get('SUPABASE_ANON_KEY')!, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'magiclink', token_hash: hash }) });
+    const sv = await rv.json().catch(() => ({}));
+    if (!rv.ok || !sv.access_token) return json({ erro: 'o acesso foi recusado: ' + (sv.msg || sv.error_description || rv.status) });
+    const pac = btoa(JSON.stringify({ access_token: sv.access_token, refresh_token: sv.refresh_token }));
+    const u = new URL(app.url_gestao);
+    u.searchParams.set('entrar', 'gestao');
+    if (ref) u.searchParams.set('ver', ref);
+    u.hash = 'sessao=' + encodeURIComponent(pac);
+    return json({ ok: true, url: u.href, modo, app: app.nome });
   }
 
   if (b.op === 'assinatura') {
