@@ -47,6 +47,8 @@ for (const [app, a] of Object.entries(apps)) {
     .replace(/assets\/icons\/(gestao|usuario|app)-(\d+)\.png/g, 'assets/icons/app-$2.png')
     .replace(/<script type="module" src="[^"]*"><\/script>/, '<script type="module" src="../src/js/core/entrada.js"></script>');
   html = comVersao(html);
+  // escala travada no tamanho da tela (o iPhone não dá zoom sozinho ao tocar num campo; pinça continua funcionando)
+  html = html.replace(/<meta name="viewport" content="[^"]*">/, '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">');
   gravar(`${app}/index.html`, html);
   gravar(`${app}/manifest.webmanifest`, JSON.stringify({
     id: `${S.id}-${app}`, name: a.nome, short_name: a.rotulo, description: a.descricao, lang: 'pt-BR', start_url: './', scope: './',
@@ -59,11 +61,15 @@ for (const [app, a] of Object.entries(apps)) {
   }, null, 2) + '\n');
 }
 
+if (existsSync(new URL('app/index.html', raiz))) {
+  const ap = ler('app/index.html').replace(/<meta name="viewport" content="[^"]*">/, '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">');
+  gravar('app/index.html', ap);
+}
 gravar('index.html', comVersao(`<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>${esc(S.nome)}</title>
 <meta name="description" content="${esc(S.slogan)}">
 <meta name="theme-color" content="${C.escura}">

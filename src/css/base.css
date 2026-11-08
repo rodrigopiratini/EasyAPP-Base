@@ -365,3 +365,9 @@ a.li, .li.click { color: inherit; cursor: pointer; }
 .topbar .ea-marca { gap: 8px; min-width: 0; }
 .topbar .topo-simbolo { height: 28px; width: auto; max-width: 44px; object-fit: contain; flex: none; }
 .topbar .ea-marca .ea-nome { font-size: 18px; overflow: hidden; text-overflow: ellipsis; }
+
+/* iPhone: campo com letra < 16px faz o Safari dar zoom ao tocar e a tela "escorrega" para os lados.
+   Campos com 16px no celular e a página travada na horizontal (tabelas largas rolam dentro do próprio quadro). */
+html, body { overflow-x: clip; max-width: 100%; }
+@supports not (overflow: clip) { html, body { overflow-x: hidden; } }
+@media (max-width: 900px) { .input, select.input, textarea.input, input, select, textarea { font-size: max(16px, 1em) !important; } }
