@@ -97,7 +97,8 @@ export function criarApp(def) {
     Object.entries(x.dados || {}).forEach(([k, v]) => { el.dataset[k] = v; });
     fn(el, new Event('click'));
   }
-  const temMais = () => IA || !!def.mais;
+  // o + só aparece onde a tela tem ações próprias (o assistente já tem o ✦ no topo)
+  const temMais = () => !!def.mais && itensMais().length > 0;
 
   // ---------- Navegação ----------
   const extrasNav = () => gestao ? [
