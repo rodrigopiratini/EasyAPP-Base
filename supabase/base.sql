@@ -447,7 +447,8 @@ begin
       v_old := to_jsonb(old); v_new := to_jsonb(new);
       v_reg := new.id::text; v_col := 'empresa'; v_emp := new.id;
     else
-      v_old := case when tg_op <> 'INSERT' then to_jsonb(old) end; v_new := case when tg_op <> 'DELETE' then to_jsonb(new) end;
+      -- visto_em é o sinal de "app aberto" (a cada 2 min): não é ação de ninguém, fica fora do registro
+      v_old := case when tg_op <> 'INSERT' then to_jsonb(old) - 'visto_em' end; v_new := case when tg_op <> 'DELETE' then to_jsonb(new) - 'visto_em' end;
       v_reg := coalesce(new.user_id, old.user_id)::text; v_col := 'perfis'; v_emp := coalesce(new.empresa_id, old.empresa_id);
     end if;
     if tg_op = 'UPDATE' then
@@ -462,6 +463,9 @@ begin
   end;
   return null;
 end $$;
+
+-- limpa o que o sinal de presença gravou antes desta correção
+delete from public.atividade where colecao = 'perfis' and acao = 'update' and depois ?| array['visto_em'] and (depois - 'visto_em') = '{}'::jsonb;
 
 do $$ declare t text; begin
   foreach t in array array['docs', 'acessos', 'perfis'] loop

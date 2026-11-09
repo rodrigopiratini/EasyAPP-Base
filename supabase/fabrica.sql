@@ -131,8 +131,15 @@ begin
     execute format($q$
       select coalesce(json_agg(x order by x.em desc), '[]') from (
         select t.em, t.user_id "userId", t.papel, t.quem, t.acao, t.colecao, t.registro, case when t.acao = 'delete' then t.antes else t.depois end dados,
-               (select d.data from %I.docs d where d.empresa_id = t.empresa_id and d.id = t.registro limit 1) atual
-        from %I.atividade t where t.empresa_id = $1 and t.em > now() - make_interval(days => $2) order by t.em desc limit 1500) x$q$, p_pasta, p_pasta)
+               case when t.acao = 'update' then t.antes end antes,
+               (select d.data from %I.docs d where d.empresa_id = t.empresa_id and d.id = t.registro limit 1) atual,
+               -- o que o lançamento cita (viagem, caminhão, motorista, cliente…): os campos terminados em Id
+               (select jsonb_object_agg(r.key, d.data) from jsonb_each_text(coalesce(t.depois, '{}') || coalesce(t.antes, '{}') ||
+                  coalesce((select d0.data from %I.docs d0 where d0.empresa_id = t.empresa_id and d0.id = t.registro limit 1), '{}')) r
+                  join %I.docs d on d.empresa_id = t.empresa_id and d.id = r.value where r.key like '%%Id' and r.value <> '') refs
+        from %I.atividade t where t.empresa_id = $1 and t.em > now() - make_interval(days => $2)
+          and not (t.colecao = 'perfis' and t.acao = 'update' and t.depois ?| array['visto_em'] and (t.depois - 'visto_em') = '{}'::jsonb)
+        order by t.em desc limit 1500) x$q$, p_pasta, p_pasta, p_pasta, p_pasta)
       into itens using p_empresa, p_dias;
   else
     execute format($q$
